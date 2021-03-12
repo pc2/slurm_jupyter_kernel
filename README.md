@@ -33,7 +33,7 @@ Try to create new jupyter slurm kernel "Python 3.8.0" ...
     "batch",
     "--account",
     "hpc-group",
-    "--cpus",
+    "--time",
     "00:30:00",
     "--kernel-cmd",
     "python3 -m ipykernel_launcher -f {connection_file}"
