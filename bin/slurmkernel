@@ -52,7 +52,7 @@ def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", 
     with open(os.path.join(tempdir, 'kernel.json'), 'w') as kfile:
         json.dump(json_kernel, kfile, indent=2, sort_keys=True);
 
-    #kernelspec.install_kernel_spec(tempdir, kerneldir_name, user=username);
+    kernelspec.install_kernel_spec(tempdir, kerneldir_name, user=username);
 
     filt = open(tempdir +'/kernel.json');
     print(filt.read())
