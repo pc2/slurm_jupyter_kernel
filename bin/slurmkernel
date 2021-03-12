@@ -29,7 +29,7 @@ def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", 
         args.extend(['--memory', f'{memory}']);
     args.extend(['--partition', f'{partition}']);
     args.extend(['--account', f'{account}']);
-    args.extend(['--cpus', f'{time}']);
+    args.extend(['--time', f'{time}']);
     args.extend(['--kernel-cmd', kernelcmd]);
 
     if not re.search('slurm', str(displayname), re.IGNORECASE):
