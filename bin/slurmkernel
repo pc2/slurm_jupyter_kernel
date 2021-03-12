@@ -40,7 +40,7 @@ def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", 
     kerneldir_name = displayname.replace(' ', '_');
     username = getpass.getuser();
 
-    #args.append('{connection_file}');
+    args.append('{connection_file}');
 
     json_kernel = {
         'display_name': displayname,
