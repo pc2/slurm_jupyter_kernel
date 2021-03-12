@@ -1,0 +1,84 @@
+#!/usr/bin/python3
+
+"""
+
+slurmkernel
+
+"""
+
+import argparse;
+import json;
+import sys;
+import os;
+import getpass;
+import re;
+import tempfile;
+try:
+    from jupyter_client import kernelspec;
+except ImportError:
+    from IPython.kernel import kernelspec;
+
+def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", cpus=None, memory=None):
+   
+    print(f'Try to create new jupyter slurm kernel "{displayname}" ...');
+    args = [str(sys.executable), '-m', 'slurm_jupyter_kernel'];
+
+    if not cpus == None:
+        args.extend(['--cpus', f'{cpus}']);
+    if not memory == None:
+        args.extend(['--memory', f'{memory}']);
+    args.extend(['--partition', f'{partition}']);
+    args.extend(['--account', f'{account}']);
+    args.extend(['--cpus', f'{time}']);
+    args.extend(['--kernel-cmd', kernelcmd]);
+
+    if not re.search('slurm', str(displayname), re.IGNORECASE):
+        displayname = "SLURM " + str(displayname);
+
+    kerneldir_name = displayname.replace(' ', '_');
+    username = getpass.getuser();
+
+    #args.append('{connection_file}');
+
+    json_kernel = {
+        'display_name': displayname,
+        'argv': args,
+    };
+
+    # create a temporary jupyter kernel directory
+    tempdir = tempfile.mkdtemp();
+
+    kernel_loc = os.path.join(str(tempdir), 'kernel.json');
+    with open(os.path.join(tempdir, 'kernel.json'), 'w') as kfile:
+        json.dump(json_kernel, kfile, indent=2, sort_keys=True);
+
+    #kernelspec.install_kernel_spec(tempdir, kerneldir_name, user=username);
+
+    filt = open(tempdir +'/kernel.json');
+    print(filt.read())
+    print("");
+
+    print(f'Successfully created kernel "{displayname}" :-)');
+
+def main (cmd_line=None):
+
+    parser = argparse.ArgumentParser('Adding jupyter kernels using slurm');
+    subparser = parser.add_subparsers(dest='command');
+
+    add_option = subparser.add_parser('create', help='create a new slurm kernel');
+
+    add_option.add_argument('--displayname', required=True, help='Display name of the new kernel');
+    add_option.add_argument('--cpus', help='slurm job spec: CPUs');
+    add_option.add_argument('--memory', help='slurm job spec: memory allocation');
+    add_option.add_argument('--partition', help='slurm job spec: memory allocation');
+    add_option.add_argument('--account', required=True, help='slurm job spec: account name');
+    add_option.add_argument('--time', required=True, help='slurm job spec: running time');
+    add_option.add_argument('--kernel-cmd', required=True, help='command to run jupyter kernel');
+
+    args = parser.parse_args(cmd_line);
+
+    if args.command == 'create':
+        add_slurm_kernel(args.displayname, args.account, args.time, args.kernel_cmd, args.partition, args.cpus, args.memory);
+
+if __name__ == '__main__':
+    main();
