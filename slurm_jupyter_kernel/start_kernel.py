@@ -36,7 +36,7 @@ class remoteslurmkernel:
         cmd_args.append(f'--time={self.time}');
         cmd_args.append(f'--partition={self.partition}');
 
-        cmd = f'srun {cmd_args} -J {default_slurm_job_name} -iv -u bash';
+        cmd = f'srun {cmd_args} -J {default_slurm_job_name} -vu bash -i';
         
         self.slurm_session = pexpect.spawn(str(cmd), timeout=500);
        
