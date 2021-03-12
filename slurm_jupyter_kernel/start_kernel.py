@@ -3,6 +3,9 @@
 import argparse;
 import json;
 import pexpect;
+import logging;
+
+logging.basicConfig(level=logging.DEBUG);
 
 # handle kernel as an object
 class remoteslurmkernel:
@@ -37,10 +40,17 @@ class remoteslurmkernel:
         cmd_args.append(f'--partition={self.partition}');
 
         cmd = f'srun {cmd_args} -J {default_slurm_job_name} -vu bash -i';
+
+        logging.debug(f"Running slurm kernel command: {cmd}");
         
         self.slurm_session = pexpect.spawn(str(cmd), timeout=500);
+        
+        exec_host = self.slurm_session.match.groups()[0];
+        logging.debug(f"Established slurm session on compute node: {exec_host}");
        
         if not self.slurm_session == None:
+            logging.debug(f"Try to initialize kernel with command: {self.kernelcmd}");
+            
             kernel_start = self.kernelcmd;
             self.slurm_session.sendline(kernel_start);
 
