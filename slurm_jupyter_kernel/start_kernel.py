@@ -13,6 +13,7 @@ class remoteslurmkernel:
         self.account = account;
         self.partition = partition;
         self.time = time;
+        self.reservation = reservation;
         self.kernelcmd = kernelcmd;
         self.established = None;
 
@@ -23,11 +24,11 @@ class remoteslurmkernel:
         cmd_args = [];
         default_slurm_job_name = 'jupyter_slurm_kernel';
 
-        if not cpus == None:
+        if not self.cpus == None:
             cmd_args.append(f'--cpus-per-task={cpus}');
-        if not memory == None:
+        if not self.memory == None:
             cmd_args.append(f'--memory {memory}');
-        if not reservation == None:
+        if not self.reservation == None:
             cmd_args.append(f'--reservation {reservation}');
 
         cmd_args.append(f'--account={account}');
