@@ -67,7 +67,7 @@ def slurm_jupyter_kernel ():
 
     parser = argparse.ArgumentParser('Adding jupyter kernels using slurm');
 
-    parser.add_argument('connection_file', required=True);
+    parser.add_argument('--connection-file');
     parser.add_argument('--cpus', help='slurm job spec: CPUs');
     parser.add_argument('--memory', help='slurm job spec: memory allocation');
     parser.add_argument('--time', required=True, help='slurm job spec: running time');
@@ -78,6 +78,6 @@ def slurm_jupyter_kernel ():
 
     args = parser.parse_args();
 
-    obj_kernel = remoteslurmkernel(account=args.account,time=args.time, kernelcmd=args.kernel_cmd, connection_file=args.conecction_file, partition=args.partition, cpus=args.cpus, memory=args.memory, reservation=args.reservation);
+    obj_kernel = remoteslurmkernel(account=args.account,time=args.time, kernelcmd=args.kernel_cmd, connection_file=args.connection_file, partition=args.partition, cpus=args.cpus, memory=args.memory, reservation=args.reservation);
 
     obj_kernel.kernel_state();
