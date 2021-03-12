@@ -44,7 +44,7 @@ class remoteslurmkernel:
             kernel_start = self.kernelcmd;
             self.slurm_session.sendline(kernel_start);
 
-    def kernel_state ():
+    def kernel_state (self):
         while True:
             if not self.slurm_session.isalive():
                 for logline in self.slurm_session.readlines():
