@@ -20,7 +20,7 @@ class remoteslurmkernel:
         self.reservation = reservation;
         self.kernelcmd = kernelcmd;
         self.slurm_session = None;
-        self.connection_file = json.load(connection_file);
+        self.connection_file = json.load(open(connection_file));
 
         self.start_slurm_kernel();
 
