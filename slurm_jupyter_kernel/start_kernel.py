@@ -8,7 +8,7 @@ import pexpect;
 class remoteslurmkernel:
 
     #         add_slurm_kernel(args.displayname, args.account, args.time, args.kernel_cmd, args.partition, args.cpus, args.memory);
-    def __init__ (self, connect, account, time, kernelcmd, partition="batch", cpus=None, memory=None):
+    def __init__ (self, connect, account, time, kernelcmd, partition="batch", cpus=None, memory=None, reservation=None):
         
         self.connect = json.load(open(connect));
         
@@ -31,6 +31,8 @@ class remoteslurmkernel:
             cmd_args.append(f'--cpus-per-task={cpus}');
         if not memory == None:
             cmd_args.append(f'--memory {memory}');
+        if not reservation == None:
+            cmd_args.append(f'--reservation {reservation}');
 
         cmd_args.append(f'--account={account}');
         cmd_args.append(f'--time={time}');
@@ -58,13 +60,14 @@ def slurm_jupyter_kernel ():
     parser.add_argument('--displayname', required=True, help='Display name of the new kernel');
     parser.add_argument('--cpus', help='slurm job spec: CPUs');
     parser.add_argument('--memory', help='slurm job spec: memory allocation');
-    parser.add_argument('--partition', help='slurm job spec: memory allocation');
-    parser.add_argument('--account', required=True, help='slurm job spec: account name');
     parser.add_argument('--time', required=True, help='slurm job spec: running time');
+    parser.add_argument('--partition', help='slurm job spec: partition to use');
+    parser.add_argument('--account', required=True, help='slurm job spec: account name');
+    parser.add_argument('--reservation', help='reservation ID');
     parser.add_argument('--kernel-cmd', required=True, help='command to run jupyter kernel');
 
     args = parser.parse_args();
 
-    obj_kernel = remoteslurmkernel(connect=args.connection_file, account=args.account,time=args.time, kernelcmd=args.kernel_cmd, partition=args.partition, cpus=args.cpus, memory=args.memory);
+    obj_kernel = remoteslurmkernel(connect=args.connection_file, account=args.account,time=args.time, kernelcmd=args.kernel_cmd, partition=args.partition, cpus=args.cpus, memory=args.memory, reservation=args.reservation);
 
     #obj.kernel_state();

@@ -18,7 +18,7 @@ try:
 except ImportError:
     from IPython.kernel import kernelspec;
 
-def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", cpus=None, memory=None):
+def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", cpus=None, memory=None, reservation=None):
    
     print(f'Try to create new jupyter slurm kernel "{displayname}" ...');
     args = [str(sys.executable), '-m', 'slurm_jupyter_kernel'];
@@ -27,6 +27,8 @@ def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", 
         args.extend(['--cpus', f'{cpus}']);
     if not memory == None:
         args.extend(['--memory', f'{memory}']);
+    if not reservation == None:
+        args.extend(['--reservation', f'{reservation}']);
     args.extend(['--partition', f'{partition}']);
     args.extend(['--account', f'{account}']);
     args.extend(['--time', f'{time}']);
@@ -70,15 +72,16 @@ def main (cmd_line=None):
     add_option.add_argument('--displayname', required=True, help='Display name of the new kernel');
     add_option.add_argument('--cpus', help='slurm job spec: CPUs');
     add_option.add_argument('--memory', help='slurm job spec: memory allocation');
-    add_option.add_argument('--partition', help='slurm job spec: memory allocation');
-    add_option.add_argument('--account', required=True, help='slurm job spec: account name');
     add_option.add_argument('--time', required=True, help='slurm job spec: running time');
+    add_option.add_argument('--partition', help='slurm job spec: partition to use');
+    add_option.add_argument('--account', required=True, help='slurm job spec: account name');
+    add_option.add_argument('--reservation', help='slurm job spec: reservation ID');
     add_option.add_argument('--kernel-cmd', required=True, help='command to run jupyter kernel');
 
     args = parser.parse_args(cmd_line);
 
     if args.command == 'create':
-        add_slurm_kernel(args.displayname, args.account, args.time, args.kernel_cmd, args.partition, args.cpus, args.memory);
+        add_slurm_kernel(args.displayname, args.account, args.time, args.kernel_cmd, args.partition, args.cpus, args.memory, args.reservation);
 
 if __name__ == '__main__':
     main();
