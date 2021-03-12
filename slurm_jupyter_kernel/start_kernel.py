@@ -48,8 +48,8 @@ class remoteslurmkernel:
         self.slurm_session = pexpect.spawn(str(cmd), timeout=500);
        
         if not self.slurm_session == None:
-            kernel_conn = json.dumps(self.connection_file);
-            self.slurm_session.sendline(kernel_conn);
+            kernel_connection_info = json.dumps(self.connection_file);
+            self.slurm_session.sendline(f'echo {kernel_connection_info} > kernel.json');
 
             logging.debug(f"Try to initialize kernel with command: {self.kernelcmd}");
 
