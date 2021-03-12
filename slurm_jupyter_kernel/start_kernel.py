@@ -32,11 +32,11 @@ class remoteslurmkernel:
         if not self.reservation == None:
             cmd_args.append(f'--reservation {self.reservation}');
 
-        cmd_args.append(f'--account={account}');
-        cmd_args.append(f'--time={time}');
-        cmd_args.append(f'--partition={partition}');
+        cmd_args.append(f'--account={self.account}');
+        cmd_args.append(f'--time={self.time}');
+        cmd_args.append(f'--partition={self.partition}');
 
-        cmd = f'srun {cmd_args} -J {default_slurm_kernel} -iv -u bash';
+        cmd = f'srun {cmd_args} -J {default_slurm_job_name} -iv -u bash';
         
         self.slurm_session = pexpect.spawn(str(cmd), timeout=500);
        
