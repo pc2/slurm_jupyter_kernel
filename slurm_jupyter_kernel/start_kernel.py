@@ -47,9 +47,11 @@ class remoteslurmkernel:
         logging.debug(f"Running slurm kernel command: {cmd}");
         
         self.slurm_session = pexpect.spawn(str(cmd), timeout=500);
+        self.slurm_session.expect('Execution node(s): (.*), .* starteds');
         
         # get execution node
-        self.exec_node = self.slurm_session.match.groups()[0];
+        exec_node = self.slurm_session.match.groups()[0];
+        self.exec_node = exec_node.decode('utf-8');
         logging.debug(f'Execution node: {self.exec_node}');
        
         if not self.slurm_session == None:
