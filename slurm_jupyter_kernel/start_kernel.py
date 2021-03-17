@@ -1,9 +1,10 @@
-#!/usr/bin/python3
+#!/usr/bin/python;3
 
 import argparse;
 import json;
 import pexpect;
 import logging;
+import re;
 
 logging.basicConfig(level=logging.DEBUG);
 
@@ -46,6 +47,10 @@ class remoteslurmkernel:
         logging.debug(f"Running slurm kernel command: {cmd}");
         
         self.slurm_session = pexpect.spawn(str(cmd), timeout=500);
+        
+        # get execution node
+        self.exec_node = self.slurm_session.match.groups()[0];
+        logging.debug(f'Execution node: {self.exec_node}');
        
         if not self.slurm_session == None:
             kernel_connection_info = json.dumps(self.connection_file);
