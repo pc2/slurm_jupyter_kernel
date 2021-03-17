@@ -13,6 +13,9 @@ import os;
 import getpass;
 import re;
 import tempfile;
+import slurm_jupyter_kernel;
+from pathlib import Path;
+from shutil import copy
 try:
     from jupyter_client import kernelspec;
 except ImportError:
@@ -53,6 +56,11 @@ def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", 
     kernel_loc = os.path.join(str(tempdir), 'kernel.json');
     with open(os.path.join(tempdir, 'kernel.json'), 'w') as kfile:
         json.dump(json_kernel, kfile, indent=2, sort_keys=True);
+
+    img_dir = str(Path(slurm_jupyter_kernel.__file__).parent.parent) + '/imgs/';
+    if os.path.isdir(str(img_dir)):
+        copy(str(img_dir) + 'logo-32x32.png', str(tempdir));
+        copy(str(img_dir) + 'logo-64x64.png', str(tempdir));
 
     kernelspec.install_kernel_spec(tempdir, kerneldir_name, user=username);
 
