@@ -4,6 +4,8 @@ Create jupyter kernels and run kernels using srun
 
 Jupyter Notebook/JupyterHub should have direct access to the compute nodes, so it is a good idea to install JupyterHub on a front end of the HPC system.
 
+If you are an HPC user, you can also install the Python packages `notebook` and `slurm_jupyter_kernel` with the prefix `--user` into your home directory.
+
 slurmkernel is able to connect to a kernel started on a compute node using SSH port forwarding.
 To allow users to access the compute node without a password, the following PAM module should have been configured:
 
