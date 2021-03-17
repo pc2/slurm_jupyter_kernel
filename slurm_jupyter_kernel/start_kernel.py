@@ -58,7 +58,7 @@ class remoteslurmkernel:
        
         if not self.slurm_session == None:
             self.kernel_connection_info = json.dumps(self.connection_file);
-            self.slurm_session.sendline(f'echo {kernel_connection_info} > kernel.json');
+            self.slurm_session.sendline(f'echo {self.kernel_connection_info} > kernel.json');
 
             logging.debug(f"Try to initialize kernel with command: {self.kernelcmd}");
 
@@ -68,14 +68,15 @@ class remoteslurmkernel:
 
     def initialize_ssh_tunnels (self):
         if not self.exec_node == None:
-            port_forward = " ";
-            port_forward = port_forward.join(['-L 127.0.0.1:{{{kport}}}:127.0.0.1:{{{kport}}}'.format(kport=kport) for kport in [ 'stdin_port', 'shell_port', 'iopub_port', 'hb_port', 'control_port' ]]);
+            port_forward = ' ';
+            # following port names should be forwarded to establishing a connection to the kernel
+            port_forward = port_forward.join(['-L {{{kport}}}:127.0.0.1:{{{kport}}}'.format(kport=kport) for kport in [ 'stdin_port', 'shell_port', 'iopub_port', 'hb_port', 'control_port' ]]);
 
             # replace format keywords in port_forward with the kernel information
             port_forward = port_forward.format(**self.connection_file);
 
-            ssh_cmd = f'ssh {port_forward} {self.exec_host}';
-            logging.debug('Establishing SSH Session with command: {ssh_cmd}');
+            ssh_cmd = f'ssh {port_forward} {self.exec_node}';
+            logging.debug(f'Establishing SSH Session with command: {ssh_cmd}');
 
             # start SSH session with port forwarding
             # The user should have access to 'self.exec_node' because there is already a SLURM job running
