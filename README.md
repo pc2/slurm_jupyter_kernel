@@ -63,4 +63,4 @@ Successfully created kernel "SLURM Python 3.8.0" :-)
 
 ```
 
-
+![Example](imgs/example.png)
