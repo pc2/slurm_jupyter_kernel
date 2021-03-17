@@ -5,7 +5,7 @@ import json;
 import pexpect;
 import logging;
 import re;
-import sshtunnel;
+import os;
 
 logging.basicConfig(level=logging.DEBUG);
 
@@ -49,12 +49,12 @@ class remoteslurmkernel:
         logging.debug(f"Running slurm kernel command: {cmd}");
         
         self.slurm_session = pexpect.spawn(str(cmd), timeout=500);
-        self.slurm_session.expect('Execution node(s): (.*), .* starteds');
+        self.slurm_session.expect('srun: Node (.*), .* tasks started');
         
         # get execution node
         exec_node = self.slurm_session.match.groups()[0];
         self.exec_node = exec_node.decode('utf-8');
-        logging.debug(f'Execution node: {self.exec_node}');
+        logging.debug(f'SLURM Execution node: {self.exec_node}');
        
         if not self.slurm_session == None:
             self.kernel_connection_info = json.dumps(self.connection_file);
@@ -69,20 +69,19 @@ class remoteslurmkernel:
     def initialize_ssh_tunnels (self):
         if not self.exec_node == None:
             port_forward = " ";
-            port_forward.join(['-L 127.0.0.1:{{{kport}}}:127.0.0.1:{{{kport}}}'.format(kport=kport) for kport in [ 'stdin_port', 'shell_port', 'iopub_port', 'hb_port', 'control_port' ]]);
-            username = 'mawi';
+            port_forward = port_forward.join(['-L 127.0.0.1:{{{kport}}}:127.0.0.1:{{{kport}}}'.format(kport=kport) for kport in [ 'stdin_port', 'shell_port', 'iopub_port', 'hb_port', 'control_port' ]]);
 
             # replace format keywords in port_forward with the kernel information
-            port_forward = port_forward.format(**self.kernel_connection_info);
+            port_forward = port_forward.format(**self.connection_file);
 
-            ssh_cmd = f'sudo -E -u {username} ssh {port_forward} {self.exec_host}';
-
+            ssh_cmd = f'ssh {port_forward} {self.exec_host}';
             logging.debug('Establishing SSH Session with command: {ssh_cmd}');
+
+            # start SSH session with port forwarding
+            # The user should have access to 'self.exec_node' because there is already a SLURM job running
+            ssh_tunnel_connection = pexpect.spawn(str(ssh_cmd), timeout=500);
         else:
             logging.debug('self.exec_host is type NONE');
-
-
-
 
     def kernel_state (self):
         while True:
