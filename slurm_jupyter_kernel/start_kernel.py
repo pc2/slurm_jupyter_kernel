@@ -1,10 +1,11 @@
-#!/usr/bin/python;3
+#!/usr/bin/python3
 
 import argparse;
 import json;
 import pexpect;
 import logging;
 import re;
+import sshtunnel;
 
 logging.basicConfig(level=logging.DEBUG);
 
@@ -21,6 +22,7 @@ class remoteslurmkernel:
         self.reservation = reservation;
         self.kernelcmd = kernelcmd;
         self.slurm_session = None;
+        self.ssh_port = 22;
         self.connection_file = json.load(open(connection_file));
 
         self.start_slurm_kernel();
@@ -55,20 +57,39 @@ class remoteslurmkernel:
         logging.debug(f'Execution node: {self.exec_node}');
        
         if not self.slurm_session == None:
-            kernel_connection_info = json.dumps(self.connection_file);
+            self.kernel_connection_info = json.dumps(self.connection_file);
             self.slurm_session.sendline(f'echo {kernel_connection_info} > kernel.json');
 
             logging.debug(f"Try to initialize kernel with command: {self.kernelcmd}");
 
             kernel_start = self.kernelcmd;
             self.slurm_session.sendline(kernel_start);
+            self.initialize_ssh_tunnels();
+
+    def initialize_ssh_tunnels (self):
+        if not self.exec_node == None:
+            port_forward = " ";
+            port_forward.join(['-L 127.0.0.1:{{{kport}}}:127.0.0.1:{{{kport}}}'.format(kport=kport) for kport in [ 'stdin_port', 'shell_port', 'iopub_port', 'hb_port', 'control_port' ]]);
+            username = 'mawi';
+
+            # replace format keywords in port_forward with the kernel information
+            port_forward = port_forward.format(**self.kernel_connection_info);
+
+            ssh_cmd = f'sudo -E -u {username} ssh {port_forward} {self.exec_host}';
+
+            logging.debug('Establishing SSH Session with command: {ssh_cmd}');
+        else:
+            logging.debug('self.exec_host is type NONE');
+
+
+
 
     def kernel_state (self):
         while True:
             if not self.slurm_session.isalive():
                 for logline in self.slurm_session.readlines():
                     if logline.strip():
-                        print(str(logline));
+                        logging.debug(str(logline));
 
 def slurm_jupyter_kernel ():
 
