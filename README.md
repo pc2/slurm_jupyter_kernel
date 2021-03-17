@@ -1,6 +1,13 @@
 # SLURM Jupyter Kernel
 
-Create jupyter kernels and run kernel using srun
+Create jupyter kernels and run kernels using srun
+
+Jupyter Notebook/JupyterHub should have direct access to the compute nodes, so it is a good idea to install JupyterHub on a front end of the HPC system.
+
+slurmkernel is able to connect to a kernel started on a compute node using SSH port forwarding.
+To allow users to access the compute node without a password, the following PAM module should have been configured:
+
+https://slurm.schedmd.com/pam_slurm_adopt.html
 
 ## Installation
 
