@@ -21,7 +21,7 @@ try:
 except ImportError:
     from IPython.kernel import kernelspec;
 
-def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", cpus=None, memory=None, reservation=None):
+def add_slurm_kernel (displayname, keyfile, account, time, kernelcmd, partition="batch", cpus=None, memory=None, reservation=None):
    
     print(f'Try to create new jupyter slurm kernel "{displayname}" ...');
     args = [str(sys.executable), '-m', 'slurm_jupyter_kernel'];
@@ -32,6 +32,10 @@ def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", 
         args.extend(['--memory', f'{memory}']);
     if not reservation == None:
         args.extend(['--reservation', f'{reservation}']);
+    if not os.path.isfile(str(keyfile)):
+        sys.exit(f'Could not find keyfile {keyfile}! Maybe you want to create it?');
+    else:
+        args.extend(['--keyfile', f'{keyfile}']);
     args.extend(['--partition', f'{partition}']);
     args.extend(['--account', f'{account}']);
     args.extend(['--time', f'{time}']);
@@ -40,7 +44,10 @@ def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", 
     if not re.search('slurm', str(displayname), re.IGNORECASE):
         displayname = "SLURM " + str(displayname);
 
-    kerneldir_name = displayname.replace(' ', '_');
+    if not reservation == None:
+        displayname = displayname + f' (Reservation: {reservation})';
+
+kerneldir_name = displayname.replace(' ', '_');
     username = getpass.getuser();
 
     args.extend(['--connection-file', '{connection_file}']);
@@ -78,6 +85,7 @@ def main (cmd_line=None):
     add_option = subparser.add_parser('create', help='create a new slurm kernel');
 
     add_option.add_argument('--displayname', required=True, help='Display name of the new kernel');
+    add_option.add_argument['--keyfile', requried=True, help='The private SSH keyfile to build the SSH tunnel');
     add_option.add_argument('--cpus', help='slurm job spec: CPUs');
     add_option.add_argument('--memory', help='slurm job spec: memory allocation');
     add_option.add_argument('--time', required=True, help='slurm job spec: running time');
@@ -89,7 +97,7 @@ def main (cmd_line=None):
     args = parser.parse_args(cmd_line);
 
     if args.command == 'create':
-        add_slurm_kernel(args.displayname, args.account, args.time, args.kernel_cmd, args.partition, args.cpus, args.memory, args.reservation);
+        add_slurm_kernel(args.displayname, args.keyfile, args.account, args.time, args.kernel_cmd, args.partition, args.cpus, args.memory, args.reservation);
 
 if __name__ == '__main__':
     main();
