@@ -6,13 +6,15 @@ import pexpect;
 import logging;
 import re;
 import os;
+import sys;
+import subprocess;
 
 logging.basicConfig(level=logging.DEBUG);
 
 # handle kernel as an object
 class remoteslurmkernel:
 
-    def __init__ (self, account, time, kernelcmd, keyfile, connection_file, partition="batch", cpus=None, memory=None, reservation=None):
+    def __init__ (self, account, time, kernelcmd, connection_file, partition="batch", cpus=None, memory=None, reservation=None, keyfile=None):
         
         self.cpus = cpus;
         self.account = account;
@@ -42,11 +44,6 @@ class remoteslurmkernel:
         cmd_args.append(f'--account={self.account}');
         cmd_args.append(f'--time={self.time}');
         cmd_args.append(f'--partition={self.partition}');
-
-        # check for keyfile
-        if not os.path.isfile(str(self.keyfile)):
-            logging.critical(f'Could not find keyfile {self.keyfile}');
-            sys.exit(f'Could not find keyfile {self.keyfile}');
 
         cmd_args = " ".join(cmd_args);
         cmd = f'srun {cmd_args} -J {default_slurm_job_name} -vu bash -i';
@@ -80,12 +77,37 @@ class remoteslurmkernel:
             # replace format keywords in port_forward with the kernel information
             port_forward = port_forward.format(**self.connection_file);
 
+            # if self.keyfile is not set, try to create a temporary keyfile
+            if self.keyfile == None:
+                username = os.environ.get('USER');
+                home = os.environ.get('HOME');
+                privatekey = f'{home}/.ssh/{username}_jupslurm';
+                publickey = privatekey + '.pub'
+
+                if not os.path.isfile(privatekey):
+                    from Crypto.PublicKey import RSA;
+                    keyf = RSA.generate(4096);
+                    with open(privatekey, 'wb') as privkey:
+                        os.chmod(privatekey, 0o600);
+                        privkey.write(keyf.exportKey('PEM'));
+
+                    pubkeypart = keyf.publickey();
+                    pubkeypart_ = pubkeypart.exportKey('OpenSSH');
+                    with open(publickey, 'wb') as pubkey:
+                        os.chmod(publickey, 0o600);
+                        pubkey.write(pubkeypart_);
+
+                    with open(home + '/.ssh/authorized_keys', 'a') as authorized_keys:
+                        authorized_keys.write(pubkeypart_.decode('utf-8'));
+
+                self.keyfile = privatekey;
+
             ssh_cmd = f'ssh -fN -i {self.keyfile} {port_forward} {self.exec_node}';
             logging.debug(f'Establishing SSH Session with command: {ssh_cmd}');
 
             # start SSH session with port forwarding
             # The user should have access to 'self.exec_node' because there is already a SLURM job running
-            ssh_tunnel_connection = pexpect.spawn(str(ssh_cmd), timeout=500);
+            subprocess.Popen(str(ssh_cmd), shell=True);
         else:
             logging.debug('self.exec_host is type NONE');
 

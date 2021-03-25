@@ -8,7 +8,7 @@ with open('README.md', 'r', encoding='utf-8') as fh:
 
 setup(
     name='slurm_jupyter_kernel',
-    version='0.1',
+    version='1.0',
     description='Starting a jupyter kernel using srun',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -24,5 +24,5 @@ setup(
     author_email='marcel.wilkowsky@hotmail.de',
     packages=['slurm_jupyter_kernel'],
     scripts=['bin/slurmkernel'],
-    install_requires=['pexpect']
+    install_requires=['pexpect', 'pycryptodome']
 );
