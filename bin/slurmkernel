@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 """
 
@@ -45,9 +45,9 @@ def add_slurm_kernel (displayname, keyfile, account, time, kernelcmd, partition=
         displayname = "SLURM " + str(displayname);
 
     if not reservation == None:
-        displayname = displayname + f' (Reservation: {reservation})';
+        displayname = displayname + f' --reservation_{reservation}';
 
-kerneldir_name = displayname.replace(' ', '_');
+    kerneldir_name = displayname.replace(' ', '_');
     username = getpass.getuser();
 
     args.extend(['--connection-file', '{connection_file}']);
@@ -85,7 +85,7 @@ def main (cmd_line=None):
     add_option = subparser.add_parser('create', help='create a new slurm kernel');
 
     add_option.add_argument('--displayname', required=True, help='Display name of the new kernel');
-    add_option.add_argument['--keyfile', requried=True, help='The private SSH keyfile to build the SSH tunnel');
+    add_option.add_argument('--keyfile', required=True, help='The private SSH keyfile to build the SSH tunnel');
     add_option.add_argument('--cpus', help='slurm job spec: CPUs');
     add_option.add_argument('--memory', help='slurm job spec: memory allocation');
     add_option.add_argument('--time', required=True, help='slurm job spec: running time');

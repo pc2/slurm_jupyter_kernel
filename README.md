@@ -1,4 +1,4 @@
-# SLURM Jupyter Kernel
+# Slurm Jupyter Kernel
 
 Create jupyter kernels and run kernels using srun
 
@@ -18,6 +18,19 @@ https://slurm.schedmd.com/pam_slurm_adopt.html
 ```bash
 python3 -m pip install slurm_jupyter_kernel
 ```
+
+## Create SSH keyfile
+
+```bash
+mawi $ ssh-keygen                
+Generating public/private rsa key pair.
+Enter file in which to save the key (/home/mawi/.ssh/id_rsa): /home/mawi/.ssh/slurmjupyterkernel     
+Enter passphrase (empty for no passphrase): 
+Enter same passphrase again: 
+Your identification has been saved in /home/mawi/.ssh/slurmjupyterkernel
+Your public key has been saved in /home/mawi/.ssh/slurmjupyterkernel.pub
+```
+
 ## Create a new kernel
 
 ### Get help
@@ -39,9 +52,9 @@ optional arguments:
 ### Example
 
 ```bash
-$ slurmkernel create --displayname="Python 3.8.0" --account=hpc-group --time=00:30:00 --kernel-cmd="python3 -m ipykernel_launcher -f {connection_file}" --partition=batch
+$ slurmkernel create --displayname="Python 3.8.4" --keyfile ~/.ssh/slurmjupyterkernel --account=hpc-group --time=00:30:00 --kernel-cmd="python3 -m ipykernel_launcher -f {connection_file}" --partition=batch
 
-Try to create new jupyter slurm kernel "Python 3.8.0" ...
+Try to create new jupyter slurm kernel "Python 3.8.4" ...
 {
   "argv": [
     "/usr/bin/python3",
@@ -58,10 +71,10 @@ Try to create new jupyter slurm kernel "Python 3.8.0" ...
     "--connection-file",
     "{connection_file}"
   ],
-  "display_name": "SLURM Python 3.8.0"
+  "display_name": "SLURM Python 3.8.4"
 }
 
-Successfully created kernel "SLURM Python 3.8.0" :-)
+Successfully created kernel "SLURM Python 3.8.4" :-)
 
 ```
 
