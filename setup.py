@@ -24,5 +24,5 @@ setup(
     author_email='marcel.wilkowsky@hotmail.de',
     packages=['slurm_jupyter_kernel'],
     scripts=['bin/slurmkernel'],
-    install_requires=['pexpect', 'pycryptodome']
+    install_requires=['pexpect', 'pycryptodome', 'jupyter_client', 'IPython']
 );
