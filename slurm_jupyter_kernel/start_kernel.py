@@ -41,7 +41,7 @@ class remoteslurmkernel:
         if not self.gpus == None:
             cmd_args.append(f'--gres=gpu:{self.gpus}');
         if not self.memory == None:
-            cmd_args.append(f'--memory={self.memory}');
+            cmd_args.append(f'--mem={self.memory}');
         if not self.reservation == None:
             cmd_args.append(f'--reservation={self.reservation}');
         if not self.qos == None:
