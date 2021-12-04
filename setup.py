@@ -8,7 +8,7 @@ with open('README.md', 'r', encoding='utf-8') as fh:
 
 setup(
     name='slurm_jupyter_kernel',
-    version='1.1',
+    version='1.3',
     description='Starting a jupyter kernel using srun',
     long_description=long_description,
     long_description_content_type="text/markdown",
