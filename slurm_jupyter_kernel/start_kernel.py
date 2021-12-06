@@ -14,14 +14,16 @@ logging.basicConfig(level=logging.DEBUG);
 # handle kernel as an object
 class remoteslurmkernel:
 
-    def __init__ (self, account, time, kernelcmd, connection_file, partition="batch", cpus=None, memory=None, reservation=None, keyfile=None):
+    def __init__ (self, account, time, kernelcmd, connection_file, partition="batch", cpus=None, gpus=None, memory=None, reservation=None, qos=None, keyfile=None):
         
         self.cpus = cpus;
+        self.gpus = gpus;
         self.account = account;
         self.partition = partition;
         self.time = time;
         self.memory = memory;
         self.reservation = reservation;
+        self.qos = qos;
         self.kernelcmd = kernelcmd;
         self.slurm_session = None;
         self.connection_file = json.load(open(connection_file));
@@ -36,10 +38,14 @@ class remoteslurmkernel:
 
         if not self.cpus == None:
             cmd_args.append(f'--cpus-per-task={self.cpus}');
+        if not self.gpus == None:
+            cmd_args.append(f'--gres=gpu:{self.gpus}');
         if not self.memory == None:
-            cmd_args.append(f'--memory={self.memory}');
+            cmd_args.append(f'--mem={self.memory}');
         if not self.reservation == None:
             cmd_args.append(f'--reservation={self.reservation}');
+        if not self.qos == None:
+            cmd_args.append(f'--qos={self.qos}');
 
         cmd_args.append(f'--account={self.account}');
         cmd_args.append(f'--time={self.time}');
@@ -102,7 +108,7 @@ class remoteslurmkernel:
 
                 self.keyfile = privatekey;
 
-            ssh_cmd = f'ssh -fN -i {self.keyfile} {port_forward} {self.exec_node}';
+            ssh_cmd = f'ssh -4 -fN -i {self.keyfile} {port_forward} {self.exec_node}';
             logging.debug(f'Establishing SSH Session with command: {ssh_cmd}');
 
             # start SSH session with port forwarding
@@ -125,15 +131,17 @@ def slurm_jupyter_kernel ():
     parser.add_argument('--connection-file');
     parser.add_argument('--keyfile');
     parser.add_argument('--cpus', help='slurm job spec: CPUs');
+    parser.add_argument('--gpus', help='slurm job spec: GPUs');
     parser.add_argument('--memory', help='slurm job spec: memory allocation');
     parser.add_argument('--time', required=True, help='slurm job spec: running time');
     parser.add_argument('--partition', help='slurm job spec: partition to use');
     parser.add_argument('--account', required=True, help='slurm job spec: account name');
     parser.add_argument('--reservation', help='reservation ID');
+    parser.add_argument('--qos', help='slurm job spec: QOS');
     parser.add_argument('--kernel-cmd', required=True, help='command to run jupyter kernel');
 
     args = parser.parse_args();
 
-    obj_kernel = remoteslurmkernel(account=args.account,time=args.time, kernelcmd=args.kernel_cmd, keyfile=args.keyfile, connection_file=args.connection_file, partition=args.partition, cpus=args.cpus, memory=args.memory, reservation=args.reservation);
+    obj_kernel = remoteslurmkernel(account=args.account,time=args.time, kernelcmd=args.kernel_cmd, keyfile=args.keyfile, connection_file=args.connection_file, partition=args.partition, cpus=args.cpus, gpus=args.gpus, memory=args.memory, reservation=args.reservation, qos=args.qos);
 
     obj_kernel.kernel_state();
