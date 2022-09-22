@@ -21,38 +21,27 @@ try:
 except ImportError:
     from IPython.kernel import kernelspec;
 
-def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", cpus=None, gpus=None, memory=None, reservation=None, qos=None, keyfile=None):
+def add_slurm_kernel (displayname, kernelcmd, slurm_parameter, loginnode, proxyjump, srun_cmd):
    
     print(f'Try to create new jupyter slurm kernel "{displayname}" ...');
     args = [str(sys.executable), '-m', 'slurm_jupyter_kernel'];
 
-    if not cpus == None:
-        args.extend(['--cpus', f'{cpus}']);
-    if not gpus == None:
-        args.extend(['--gpus', f'{gpus}']);
-    if not memory == None:
-        args.extend(['--memory', f'{memory}']);
-    if not qos == None:
-        args.extend(['--qos', f'{qos}']);
-    if not reservation == None:
-        args.extend(['--reservation', f'{reservation}']);
-    if not keyfile == None:
-        args.extend(['--keyfile', f'{keyfile}']);
-    args.extend(['--partition', f'{partition}']);
-    args.extend(['--account', f'{account}']);
-    args.extend(['--time', f'{time}']);
+    args.extend(['--slurm-parameter', slurm_parameter]);
+    args.extend(['--loginnode', loginnode]);
+    args.extend(['--proxyjump', proxyjump]);
+    if srun_cmd is None:
+        srun_cmd = 'srun';
+    args.extend(['--srun-cmd', srun_cmd]);
+
+    kernelcmd = kernelcmd.format(connection_file='{remote_connection_file}');
     args.extend(['--kernel-cmd', kernelcmd]);
+    args.extend(['--connection-file', '{connection_file}']);
 
     if not re.search('slurm', str(displayname), re.IGNORECASE):
         displayname = "SLURM " + str(displayname);
 
-    if not reservation == None:
-        displayname = displayname + f' --reservation_{reservation}';
-
     kerneldir_name = displayname.replace(' ', '_');
     username = getpass.getuser();
-
-    args.extend(['--connection-file', '{connection_file}']);
 
     json_kernel = {
         'display_name': displayname,
@@ -75,7 +64,7 @@ def add_slurm_kernel (displayname, account, time, kernelcmd, partition="batch", 
 
     filt = open(tempdir +'/kernel.json');
     print(filt.read())
-    print("");
+    print('');
 
     print(f'Successfully created kernel "{displayname}" :-)');
 
@@ -87,21 +76,20 @@ def main (cmd_line=None):
     add_option = subparser.add_parser('create', help='create a new slurm kernel');
 
     add_option.add_argument('--displayname', required=True, help='Display name of the new kernel');
-    add_option.add_argument('--keyfile', help='The private SSH keyfile to build the SSH tunnel. If you do not specify a keyfile a keyfile in $HOME/.ssh/ will be created');
-    add_option.add_argument('--cpus', help='slurm job spec: CPUs');
-    add_option.add_argument('--gpus', help='slurm job spec: GPUs');
-    add_option.add_argument('--memory', help='slurm job spec: memory allocation');
-    add_option.add_argument('--time', required=True, help='slurm job spec: running time');
-    add_option.add_argument('--partition', help='slurm job spec: partition to use');
-    add_option.add_argument('--account', required=True, help='slurm job spec: account name');
-    add_option.add_argument('--reservation', help='slurm job spec: reservation ID');
-    add_option.add_argument('--qos', help='slurm job spec: QOS');
+    add_option.add_argument('--loginnode', required=True, help='The login node to connect to');
+    add_option.add_argument('--proxyjump', help='Add a proxy jump (SSH -J)');
+    add_option.add_argument('--srun-cmd', help='Path to srun command. Default: srun');
     add_option.add_argument('--kernel-cmd', required=True, help='command to run jupyter kernel');
+    add_option.add_argument('--slurm-parameter', required=True, help='Slurm job parameter');
 
+    if len(sys.argv) == 1:
+        parser.print_help();
+        sys.exit();
     args = parser.parse_args(cmd_line);
 
     if args.command == 'create':
-        add_slurm_kernel(args.displayname, args.account, args.time, args.kernel_cmd, args.partition, args.cpus, args.gpus, args.memory, args.reservation, args.qos, args.keyfile);
+        add_slurm_kernel(args.displayname, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.proxyjump, args.srun_cmd);
 
 if __name__ == '__main__':
     main();
+
