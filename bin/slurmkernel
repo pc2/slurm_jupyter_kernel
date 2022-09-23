@@ -21,7 +21,7 @@ try:
 except ImportError:
     from IPython.kernel import kernelspec;
 
-def add_slurm_kernel (displayname, kernelcmd, slurm_parameter, loginnode, proxyjump, srun_cmd):
+def add_slurm_kernel (displayname, language, kernelcmd, slurm_parameter, loginnode, proxyjump, srun_cmd):
    
     print(f'Try to create new jupyter slurm kernel "{displayname}" ...');
     args = [str(sys.executable), '-m', 'slurm_jupyter_kernel'];
@@ -47,6 +47,8 @@ def add_slurm_kernel (displayname, kernelcmd, slurm_parameter, loginnode, proxyj
         'display_name': displayname,
         'argv': args,
     };
+    if not language is None:
+        json_kernel['language'] = language;
 
     # create a temporary jupyter kernel directory
     tempdir = tempfile.mkdtemp();
@@ -76,6 +78,7 @@ def main (cmd_line=None):
     add_option = subparser.add_parser('create', help='create a new slurm kernel');
 
     add_option.add_argument('--displayname', required=True, help='Display name of the new kernel');
+    add_option.add_argument('--language', help='Programming language');
     add_option.add_argument('--loginnode', required=True, help='The login node to connect to');
     add_option.add_argument('--proxyjump', help='Add a proxy jump (SSH -J)');
     add_option.add_argument('--srun-cmd', help='Path to srun command. Default: srun');
@@ -88,7 +91,7 @@ def main (cmd_line=None):
     args = parser.parse_args(cmd_line);
 
     if args.command == 'create':
-        add_slurm_kernel(args.displayname, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.proxyjump, args.srun_cmd);
+        add_slurm_kernel(args.displayname, args.language, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.proxyjump, args.srun_cmd);
 
 if __name__ == '__main__':
     main();
