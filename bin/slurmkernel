@@ -74,6 +74,41 @@ def add_slurm_kernel (displayname, language, kernelcmd, slurm_parameter, loginno
 
     print(f'Successfully created kernel "{displayname}" :-)');
 
+def list_slurm_kernel (all=False, verbose=False):
+
+    kernelspecs = kernelspec.find_kernel_specs();
+    slurm_kernels = {};
+
+    # iterate throuh all available kernels
+    for kernel, file in kernelspecs.items():
+        kernel_spec = kernelspec.get_kernel_spec(kernel);
+        add = False;
+        if all:
+            add = True;
+        else:
+            try:
+                is_slurm_kernel = kernel_spec.metadata['remote_slurm_kernel'] or None;
+                if is_slurm_kernel == True:
+                    add = True;
+            except KeyError:
+                # current slurm kernel is no jupyter slurm kernel
+                pass;
+        if add:
+            slurm_kernels.update({str(file): [kernel_spec.name, kernel_spec.display_name, kernel_spec.language, kernel_spec.env]});
+
+    if len(slurm_kernels) >= 1:
+        print("\033[4mFollowing kernels found:\033[0m\n");
+        for kernel, data in slurm_kernels.items():
+            print(f'\033[94m\u27A4\033[0m \033[95m{kernel}\033[0m');
+            if verbose:
+                if data[0]: print(f'  \u2937  \033[1mKernel Name  : \033[0m{data[0]}');
+                if data[1]: print(f'  \u2937  \033[1mDisplay Name : \033[0m{data[1]}');
+                if data[2]: print(f'  \u2937  \033[1mLanguage     : \033[0m{data[2]}');
+                if data[3]: print(f'  \u2937  \033[1mEnvironment  : \033[0m{data[3]}');
+                print('');
+    else:
+        print('Currently no installed kernels found!');
+
 def main (cmd_line=None):
 
     parser = argparse.ArgumentParser('Adding jupyter kernels using slurm');
@@ -90,13 +125,19 @@ def main (cmd_line=None):
     add_option.add_argument('--kernel-cmd', required=True, help='command to run jupyter kernel');
     add_option.add_argument('--slurm-parameter', required=True, help='Slurm job parameter');
 
+    list_option = subparser.add_parser('list', help='list available slurm kernel');
+    list_option.add_argument('-v', '--verbose', action='store_true', required=False, help='Print all kernel with the kernelspec information');
+    list_option.add_argument('-a', '--all', action='store_true', required=False, help='Print all available Jupyter kernels');
+
     if len(sys.argv) == 1:
         parser.print_help();
         sys.exit();
     args = parser.parse_args(cmd_line);
 
     if args.command == 'create':
-        add_slurm_kernel(args.displayname, args.language, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.proxyjump, args.srun_cmd);
+        add_slurm_kernel(args.displayname, args.language, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.proxyjump, args.srun_cmd, args.environment);
+    elif args.command == 'list':
+        list_slurm_kernel(all=args.all, verbose=args.verbose);
 
 if __name__ == '__main__':
     main();
