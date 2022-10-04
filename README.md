@@ -130,15 +130,15 @@ https://quarto.org/
 ## Get help
 
 ```bash
-$ slurmkernel --help
+$ slurmkernel {create,list} --help
 
-usage: Adding jupyter kernels using slurm [-h] {create} ...
+usage: Adding jupyter kernels using slurm [-h] {create,list} ...
 
 positional arguments:
-  {create}
-    create    create a new slurm kernel
+  {create,list}
+    create       create a new slurm kernel
+    list         list available slurm kernel
 
 optional arguments:
-  -h, --help  show this help message and exit
-
+  -h, --help     show this help message and exit
 ```
