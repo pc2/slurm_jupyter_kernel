@@ -22,9 +22,10 @@ If you are an HPC user, you can also install the Python packages `notebook` and 
     - [IJulia Example](#ijulia-example)
       - [Remote Host](#remote-host-1)
       - [Localhost](#localhost-1)
+    - [Set kernel-specific environment](#set-kernel-specific-environment)
   - [Using the kernel with Quarto](#using-the-kernel-with-quarto)
     - [Example](#example)
-    - [Get help](#get-help)
+  - [Get help](#get-help)
 
 ## Installation
 
@@ -72,7 +73,7 @@ notebook ~$ slurmkernel create --displayname "Remote Python" \
 
 #### Remote Host
 
-1. load required software if necessary)
+1. load required software (if necessary)
 2. Set `JULIA_DEPOT_PATH`
 3. Create a wrapper script and mark it as executable
 4. activate environment and install IJulia
@@ -103,6 +104,16 @@ notebook ~$ slurmkernel create --displayname "Remote Julia" \
 
 ![Example](imgs/example.png)
 
+### Set kernel-specific environment
+
+If you want to set kernel specific environment variables (e.g. `JULIA_NUM_THREADS` for the number of threads) just extend the jupyter kernelspec file with `env`.
+
+Parameter for `slurmkernel`:
+
+`--environment="JULIA_NUM_THREADS=4"`
+
+More information here: https://jupyter-client.readthedocs.io/en/stable/kernels.html
+
 ## Using the kernel with Quarto
 
 What is Quarto?
@@ -116,7 +127,7 @@ https://quarto.org/
 ### Example
 <img src="imgs/quarto_example.png" width="600">
 
-### Get help
+## Get help
 
 ```bash
 $ slurmkernel --help
