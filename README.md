@@ -7,9 +7,6 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
 
 If you are an HPC user, you can also install the Python packages `notebook` and `slurm_jupyter_kernel` with the prefix `--user` into your home directory.
 
-To allow users to access the compute node without a password, the following PAM module should have been configured:
-https://slurm.schedmd.com/pam_slurm_adopt.html
-
 ![How it works](imgs/how_it_works.png)
 
 ## Installation
@@ -22,38 +19,52 @@ python3 -m pip install git+https://github.com/pc2/slurm_jupyter_kernel.git@remot
 
 ## Create a new kernel
 
-### Python
+We assume to install the Jupyter kernel tools into your `$HOME` directory on your cluster.
 
+### IPython Example
 
-#### On the remote host
+#### Remote Host
+
+1. load required software (if necessary)
+2. Create a Python virtual environment
+3. Install the IPython package (ipython, ipykernel)
+4. Create a wrapper script and mark it as executable
 
 ```bash
-noctua1 me/ $ export MYRKERNEL_DIR=/scratch/me/rkernel/py/
- 
-noctua1 me/ $ cd $MYRKERNEL_DIR
-noctua1 py $ module load lang Python # load python environment
-noctua1 py $ python -m venv ipython_venv # create a venv for the IPython kernel
-noctua1 py $ source ipython_venv/bin/activate # activate environment
- 
-(ipython_venv) noctua1 py $ python3 -m pip install --upgrade pip
-(ipython_venv) noctua1 py $ python3 -m pip install ipython ipykernel
-(ipython_venv) noctua1 py $ echo -e '#!/bin/bash\nmodule load lang Python\n"$@"' > ipy_wrapper.sh
-(ipython_venv) noctua1 py $ chmod +x ipy_wrapper.sh
+remotehost ~$ module load lang Python
+remotehost ~$ python3 -m venv remotekernel/
+remotehost ~$ source remotekernel/bin/activate
+(remotekernel) remotehost ~$ python3 -m pip install ipython ipykernel; deactivate
+remotehost ~$ echo -e '#!/bin/bash\nmodule load lang Python\n\nsource remotekernel/bin/activate\n"$@"' > remotekernel/ipy_wrapper.sh && chmod +x remotekernel/ipy_wrapper.sh
 ```
 
 #### Localhost
 
-```bash
-notebook $ export MYRKERNEL_DIR=/scratch/me/rkernel/py/
+5. Kernel Remote Slurm kernel with command `slurmkernel`
 
-notebook $ slurmkernel create --displayname "Noctua 1 Python" \
+```bash
+notebook ~$ slurmkernel create --displayname "Remote Python" \
 --slurm-parameter="account=slurmaccount,time=00:30:00,partition=normal" \
---kernel-cmd="$MYRKERNEL_DIR/ipy_wrapper.sh ipython kernel -f {connection_file}" \
+--kernel-cmd="$HOME/remotekernel/ipy_wrapper.sh ipython kernel -f {connection_file}" \
 --proxyjump="lb.n1.pc2.uni-paderborn.de" \
---loginnode="login-0001"
+--loginnode="login-0001" \
+--language="python"
 ```
 
 ![Example](imgs/example.png)
+
+### Using the kernel with Quarto
+
+What is Quarto?
+
+https://quarto.org/
+
+* Install kernel as shown above 
+  *  Make sure that you pass the `--language` flag as well.
+     *  e.g. `python` or `julia`
+
+#### Example
+<img src="imgs/quarto_example.png" width="600">
 
 ### Get help
 
@@ -70,5 +81,3 @@ optional arguments:
   -h, --help  show this help message and exit
 
 ```
-
-
