@@ -101,9 +101,13 @@ def list_slurm_kernel (all=False, verbose=False):
         for kernel, data in slurm_kernels.items():
             print(f'\033[94m\u27A4\033[0m \033[95m{kernel}\033[0m');
             if verbose:
-                if data[0]: print(f'  \u2937  \033[1mKernel Name  : \033[0m{data[0]}');
-                if data[1]: print(f'  \u2937  \033[1mDisplay Name : \033[0m{data[1]}');
+                if data[0]:
+                    print(f'  \u2937  \033[1mKernel Name  : \033[0m{data[0]}');
+                else:
+                    kernelname = kernel.split('/')[-1];
+                    print(f'  \u2937  \033[1mKernel Name  : \033[0m{kernelname}') ;
                 if data[2]: print(f'  \u2937  \033[1mLanguage     : \033[0m{data[2]}');
+                if data[1]: print(f'  \u2937  \033[1mDisplay Name : \033[0m{data[1]}');
                 if data[3]: print(f'  \u2937  \033[1mEnvironment  : \033[0m{data[3]}');
                 print('');
     else:
