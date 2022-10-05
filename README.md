@@ -32,7 +32,12 @@ If you are an HPC user, you can also install the Python packages `notebook` and 
 ### Install using pip
 
 ```bash
-python3 -m pip install git+https://github.com/pc2/slurm_jupyter_kernel.git@remote_execution
+python3 -m pip install slurm_jupyter_kernel
+```
+
+#### Install the unstable version
+```bash
+python3 -m pip install git+https://github.com/pc2/slurm_jupyter_kernel.git
 ```
 
 ## Create a new kernel
