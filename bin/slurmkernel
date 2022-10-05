@@ -42,6 +42,7 @@ def add_slurm_kernel (displayname, language, kernelcmd, slurm_parameter, loginno
     kerneldir_name = displayname.replace(' ', '_');
     username = getpass.getuser();
 
+    kernel_env = {}
     if not environment is None:
         kernel_env = dict( (key.strip(), val.strip()) for key, val in (item.split('=') for item in environment.split(',')) ); 
         args.extend(['--environment', str(kernel_env)]);
