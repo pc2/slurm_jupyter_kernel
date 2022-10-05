@@ -14,7 +14,7 @@ import tempfile;
 import subprocess;
 import slurm_jupyter_kernel;
 from pathlib import Path;
-from shutil import copy
+from shutil import copy, rmtree 
 try:
     from jupyter_client import kernelspec;
 except ImportError:
@@ -71,9 +71,30 @@ def add_slurm_kernel (displayname, language, kernelcmd, slurm_parameter, loginno
 
     print(f'\033[94m\u2714\033[0m \033[95m\033[0mSuccessfully created kernel: {kernel_path}\033[0m');
 
-def modify_slurm_kernel (editor=None):
+def delete_slurm_kernel ():
+    
+    selected_kernel = _select_slurm_kernel();
+
+    while True:
+        print(f'Following kernel selected: \033[1m\033[93m{selected_kernel}\033[0m');
+        delete_yes_no = input('Are you sure you want to delete the selected kernel? [Y,n] ');
+        if delete_yes_no == '' or delete_yes_no.upper() == 'Y':
+            rmtree(str(selected_kernel));
+            print(f'Kernel \033[92m{selected_kernel}\033[0m deleted');
+            sys.exit();
+        elif delete_yes_no.upper() == 'N':
+            print('\033[94mI did not delete the selected kernel\033[0m');
+            sys.exit();
+        else:
+            print('\033[91mInvalid input. Please try again!\033[0m');
+            continue;
+
+def _select_slurm_kernel ():
 
     available_slurm_kernel = list_slurm_kernel(returnonly=True);
+
+    if available_slurm_kernel is None:
+        sys.exit();
 
     if len(available_slurm_kernel) >= 1:
         while True:
@@ -82,7 +103,7 @@ def modify_slurm_kernel (editor=None):
             for kernelfile, data in available_slurm_kernel.items():
                 print(f'\033[94m[{iterator}]\033[0m {kernelfile}');
                 iterator += 1;
-            identifier = input('Select a kernel using the identifier:\033[94m ');
+            identifier = input('Select a kernel using the \033[94midentifier\033[0m:\033[94m ');
             try:
                 key = list(available_slurm_kernel.keys())[int(identifier)];
             except IndexError:
@@ -90,42 +111,51 @@ def modify_slurm_kernel (editor=None):
                 continue;
             print('\033[0m');
             if key:
-                kernelspec = key + '/kernel.json';
-                if editor is None:
-                    try:
-                        editor = os.environ['EDITOR'];
-                    except KeyError:
-                        print(f'\033[91m$EDITOR not set. Please explicity set an editor with --editor (e.g. --editor vim)\033[0m\n');
-                        sys.exit();
-                else:
-                    # TODO: Check explicity set editor (which editor)
-                    pass;
+                return key;
+            else:
+                return False;
 
-                while True:
-                    edit_process = subprocess.Popen(f'{editor} {kernelspec}', shell=True);
-                    (stdout, stderr) = edit_process.communicate();
-                    edit_process_status = edit_process.wait();
-                    try:
-                        # check modified kernel.json
-                        with open(kernelspec, 'r') as f:
-                            json.loads(f.read());
 
-                    except json.decoder.JSONDecodeError:
-                        print(f'\033[91mError parsing the modified kernel.json!\033[0m\n');
-                        re_run = input('Would you like to re-run the edit mode? [Y,n] ');
-                        if re_run == '' or re_run.upper() == 'Y':
-                            continue;
-                        elif re_run.upper() == 'N':
-                            break;
-                        else:
-                            print(f'\033[91mInvalid input {re_run}! Aborting.\033[0m\n');
-                            break;
-                    
-                    break;
-                    
-                # Modify done
-                print(f'Successfully modified {kernelspec}!');
+def modify_slurm_kernel (editor=None):
+
+    selected_kernel = _select_slurm_kernel();
+    if selected_kernel:
+        kernelspec = selected_kernel + '/kernel.json';
+        if editor is None:
+            try:
+                editor = os.environ['EDITOR'];
+            except KeyError:
+                print(f'\033[91m$EDITOR not set. Please explicity set an editor with --editor (e.g. --editor vim)\033[0m\n');
                 sys.exit();
+        else:
+            # TODO: Check explicity set editor (which editor)
+            pass;
+
+        while True:
+            edit_process = subprocess.Popen(f'{editor} {kernelspec}', shell=True);
+            (stdout, stderr) = edit_process.communicate();
+            edit_process_status = edit_process.wait();
+            try:
+                # check modified kernel.json
+                with open(kernelspec, 'r') as f:
+                    json.loads(f.read());
+
+            except json.decoder.JSONDecodeError:
+                print(f'\033[91mError parsing the modified kernel.json!\033[0m\n');
+                re_run = input('Would you like to re-run the edit mode? [Y,n] ');
+                if re_run == '' or re_run.upper() == 'Y':
+                    continue;
+                elif re_run.upper() == 'N':
+                    break;
+                else:
+                    print(f'\033[91mInvalid input {re_run}! Aborting.\033[0m\n');
+                    break;
+            
+            break;
+            
+        # Modify done
+        print(f'Successfully modified {kernelspec}!');
+        sys.exit();
     
 
 def list_slurm_kernel (all=False, verbose=False, returnonly=False):
@@ -180,7 +210,7 @@ def list_slurm_kernel (all=False, verbose=False, returnonly=False):
 
 def main (cmd_line=None):
 
-    parser = argparse.ArgumentParser('Adding jupyter kernels using slurm');
+    parser = argparse.ArgumentParser('Tool to manage jupyter slurm kernels');
     subparser = parser.add_subparsers(dest='command');
 
     add_option = subparser.add_parser('create', help='create a new slurm kernel');
@@ -201,6 +231,7 @@ def main (cmd_line=None):
     modify_option = subparser.add_parser('modify', help='modify an existing slurm kernel');
     modify_option.add_argument('-e', '--editor', help='Set a specific editor to modify the kernelspec (default: $EDITOR)');
 
+    delete_option = subparser.add_parser('delete', help='delete an existing slurm kernel');
 
     if len(sys.argv) == 1:
         parser.print_help();
@@ -213,6 +244,8 @@ def main (cmd_line=None):
         list_slurm_kernel(all=args.all, verbose=args.verbose);
     elif args.command == 'modify':
         modify_slurm_kernel(args.editor);
+    elif args.command == 'delete':
+        delete_slurm_kernel();
 
 if __name__ == '__main__':
     main();
