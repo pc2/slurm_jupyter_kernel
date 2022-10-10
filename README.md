@@ -1,11 +1,9 @@
 # Slurm Jupyter Kernel
 
-Create jupyter kernels and run kernels using srun
+Manage (create, list, modify and delete) and starting jupyter slurm kernels using srun
 
 slurmkernel is able to connect to a kernel started on a compute node using SSH port forwarding.
 You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loadbalancer)
-
-If you are an HPC user, you can also install the Python packages `notebook` and `slurm_jupyter_kernel` with the prefix `--user` into your home directory.
 
 ![How it works](imgs/how_it_works.png)
 
@@ -135,15 +133,17 @@ https://quarto.org/
 ## Get help
 
 ```bash
-$ slurmkernel {create,list} --help
+$ slurmkernel --help
 
-usage: Adding jupyter kernels using slurm [-h] {create,list} ...
+usage: Tool to manage jupyter slurm kernels [-h] {create,list,modify,delete} ...
 
 positional arguments:
-  {create,list}
-    create       create a new slurm kernel
-    list         list available slurm kernel
+  {create,list,modify,delete}
+    create              create a new slurm kernel
+    list                list available slurm kernel
+    modify              modify an existing slurm kernel
+    delete              delete an existing slurm kernel
 
 optional arguments:
-  -h, --help     show this help message and exit
+  -h, --help            show this help message and exit
 ```
