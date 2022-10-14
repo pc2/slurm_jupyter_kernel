@@ -20,6 +20,7 @@ class remoteslurmkernel:
         self.slurm_session = None;
         self.connection_file = json.load(open(connection_file));
         self.loginnode = loginnode;
+        self.proxyjump = False;
         if proxyjump:
             self.proxyjump = proxyjump;
         self.srun_cmd = 'srun';
@@ -43,7 +44,7 @@ class remoteslurmkernel:
         cmd_args = " ".join(cmd_args);
 
         # ssh cmd
-        proxjump = '';
+        proxyjump = '';
         if self.proxyjump:
             proxyjump = f'-J {self.proxyjump}';
         ssh_cmd = f'ssh -tA {proxyjump} {self.loginnode}';
@@ -59,13 +60,14 @@ class remoteslurmkernel:
         exec_node = self.slurm_session.match.groups()[0];
         self.exec_node = exec_node.decode('utf-8');
         logging.debug(f'Slurm execution node: {self.exec_node}');
-
-        if len(self.environment) >= 1:
-            for key, val in self.environment.items():
-                logging.debug(f"Send to session: export {key}={val}")
-                self.slurm_session.sendline(f"export {key}={val}");
        
         if not self.slurm_session == None:
+
+            if len(self.environment) >= 1:
+                for key, val in self.environment.items():
+                    logging.debug(f"Send to session: export {key}={val}")
+                    self.slurm_session.sendline(f"export {key}={val}");
+
             self.kernel_connection_info = json.dumps(self.connection_file);
             logging.debug("Kernelinfo: " + str(self.kernel_connection_info));
             self.slurm_session.sendline(f"echo '{self.kernel_connection_info}' > /tmp/rkernel.json");
