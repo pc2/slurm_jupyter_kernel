@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-slurmkernel
+Manage (create, list, modify and delete) and starting jupyter slurm kernels using srun
 """
 
 import argparse;
@@ -20,13 +20,13 @@ try:
 except ImportError:
     from IPython.kernel import kernelspec;
 
-def add_slurm_kernel (displayname, language, kernelcmd, slurm_parameter, loginnode, proxyjump, srun_cmd, environment):
+def add_slurm_kernel (displayname, language, kernelcmd, slurm_parameter, loginnode, user, proxyjump, srun_cmd, environment):
    
     print(f"\n\033[94m\u2687\033[0m Try to create slurm kernel '{displayname}'... \033[0m");
     args = [str(sys.executable), '-m', 'slurm_jupyter_kernel'];
 
     args.extend(['--slurm-parameter', slurm_parameter]);
-    args.extend(['--loginnode', loginnode]);
+    args.extend(['--loginnode', user+'@'+loginnode]);
     args.extend(['--proxyjump', proxyjump]);
     if srun_cmd is None:
         srun_cmd = 'srun';
@@ -205,9 +205,7 @@ def list_slurm_kernel (all=False, verbose=False, returnonly=False):
                     add = True;
         if add:
             slurm_kernels.update({str(file): [kernel_spec.name, kernel_spec.display_name, kernel_spec.language, kernel_spec.env, kernel_spec.metadata]});
-
     
-
     if len(slurm_kernels) >= 1:
         # return only
         if returnonly:
@@ -254,6 +252,7 @@ def main (cmd_line=None):
     add_option.add_argument('--environment', required=False, help='Jupyter kernel environment');
     add_option.add_argument('--language', help='Programming language');
     add_option.add_argument('--loginnode', required=True, help='The login node to connect to');
+    add_option.add_argument('--user', required=True, help='The username to log in to the loginnode');
     add_option.add_argument('--proxyjump', help='Add a proxy jump (SSH -J)');
     add_option.add_argument('--srun-cmd', help='Path to srun command. Default: srun');
     add_option.add_argument('--kernel-cmd', required=True, help='command to run jupyter kernel');
@@ -274,7 +273,7 @@ def main (cmd_line=None):
     args = parser.parse_args(cmd_line);
 
     if args.command == 'create':
-        add_slurm_kernel(args.displayname, args.language, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.proxyjump, args.srun_cmd, args.environment);
+        add_slurm_kernel(args.displayname, args.language, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.user, args.proxyjump, args.srun_cmd, args.environment);
     elif args.command == 'list':
         list_slurm_kernel(all=args.all, verbose=args.verbose);
     elif args.command == 'modify':
