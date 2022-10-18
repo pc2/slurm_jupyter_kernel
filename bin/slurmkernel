@@ -11,18 +11,20 @@ import os;
 import getpass;
 import re;
 import tempfile;
-import subprocess;
+import subprocess
+from venv import create;
 import slurm_jupyter_kernel;
 from pathlib import Path;
 from shutil import copy, rmtree 
+from pexpect import pxssh;
 try:
     from jupyter_client import kernelspec;
 except ImportError:
     from IPython.kernel import kernelspec;
 
-def add_slurm_kernel (displayname, language, kernelcmd, slurm_parameter, loginnode, user, proxyjump, srun_cmd, environment):
+def add_slurm_kernel (kernel_displayname, kernel_language, kernel_cmd, slurm_parameter, loginnode, user, proxyjump, srun_cmd="srun", environment=None):
    
-    print(f"\n\033[94m\u2687\033[0m Try to create slurm kernel '{displayname}'... \033[0m");
+    print(f"\n\033[94m\u2687\033[0m Try to create slurm kernel '{kernel_displayname}'... \033[0m");
     args = [str(sys.executable), '-m', 'slurm_jupyter_kernel'];
 
     args.extend(['--slurm-parameter', slurm_parameter]);
@@ -32,14 +34,14 @@ def add_slurm_kernel (displayname, language, kernelcmd, slurm_parameter, loginno
         srun_cmd = 'srun';
     args.extend(['--srun-cmd', srun_cmd]);
 
-    kernelcmd = kernelcmd.format(connection_file='{remote_connection_file}');
-    args.extend(['--kernel-cmd', kernelcmd]);
+    kernel_cmd = kernel_cmd.format(connection_file='{remote_connection_file}');
+    args.extend(['--kernel-cmd', kernel_cmd]);
     args.extend(['--connection-file', '{connection_file}']);
 
-    if not re.search('slurm', str(displayname), re.IGNORECASE):
-        displayname = "Slurm " + str(displayname);
+    if not re.search('slurm', str(kernel_displayname), re.IGNORECASE):
+        kernel_displayname = "Slurm " + str(kernel_displayname);
 
-    kerneldir_name = displayname.replace(' ', '_');
+    kerneldir_name = kernel_displayname.replace(' ', '_');
     username = getpass.getuser();
 
     kernel_env = {}
@@ -48,13 +50,13 @@ def add_slurm_kernel (displayname, language, kernelcmd, slurm_parameter, loginno
         args.extend(['--environment', str(kernel_env)]);
 
     json_kernel = {
-        'display_name': displayname,
+        'display_name': kernel_displayname,
         'env': kernel_env,
         'metadata': {"remote_slurm_kernel": True},
         'argv': args
     };
-    if not language is None:
-        json_kernel['language'] = language;
+    if not kernel_language is None:
+        json_kernel['language'] = kernel_language;
 
     # create a temporary jupyter kernel directory
     tempdir = tempfile.mkdtemp();
@@ -241,6 +243,156 @@ def list_slurm_kernel (all=False, verbose=False, returnonly=False):
     else:
         print('Currently no installed kernels found!');
 
+def yninput (inputstr=''):
+
+    while True:
+        question = input(inputstr);
+        if question.upper() == 'Y' or question == '':
+            return True;
+        elif question.upper() == 'N':
+            return False;
+        else:
+            continue;
+
+def remote_initialization (loginnode=None, user=None, proxyjump=None, dry_run=False):
+
+    template_directory = os.path.dirname(slurm_jupyter_kernel.__file__) + '/kernel_scripts';
+    ssh_options = {};
+    kernel_specs = ['KERNEL_LANGUAGE', 'KERNEL_DISPLAYNAME', 'KERNEL_CMD'];
+
+    # get info to start up ssh connection
+    proxy = '';
+    if proxyjump is None:
+        if not loginnode or not user:
+            proxyjump = input('SSH Proxyjump (leave empty if not needed): ');
+            if not proxyjump == '':
+                proxy = f'-J {proxyjump}';
+                ssh_options['ProxyJump'] = proxyjump;
+    if loginnode is None:
+        loginnode = input('SSH Loginnode: ');
+    if user is None:
+        user = input(f'Username for {loginnode}: ');
+
+    # startup ssh connection
+    while True:
+        print(f'\nTry to establish a ssh connection to {loginnode}');
+        ssh_session = pxssh.pxssh(options=ssh_options);
+        ssh_session.login(loginnode, user);
+
+        # TODO: SSH Session error handling
+        if not ssh_session is None:
+            print(f'\u2713 Successfully established SSH session!\n');
+            break;
+
+    # after remote initialization: create kernel or use existing?
+    create_kernel = yninput('Do you want to create a new local jupyter kernel after remote initialization? [Y/n] ');
+
+    # checkout which template to use
+    print('\nList of available templates:');
+
+    template_scripts = [ script for script in os.listdir(template_directory) if script.endswith('.sh') ];
+    if len(template_scripts) >= 1:
+        id = 0;
+        for script in template_scripts:
+            print(f'\033[94m[{id}]\033[0m {script}');
+            id += 1;
+
+        while True:
+            template_to_install = input('Please choose a kernel script template to install using the \033[94midentifier\033[0m:\033[94m ');
+            try:
+                template_to_install = template_scripts[int(template_to_install)];
+                break;
+            except IndexError:
+                print(f'Kernel script template with id {template_to_install} not found!\033[0m');
+                continue;
+
+        print('\033[0m');
+
+        script_to_install = template_directory + '/' + template_to_install;
+
+        script = open(script_to_install, 'r');
+        print(f'Try to parse {template_to_install}...\n');
+
+        input_variables = {};
+        set_kernel_specs = {};
+        execute_lines = [];
+        for line in script.readlines():
+            line = line.replace('\n', '');
+            if line == '' or line.startswith('#'):
+                continue;
+
+            # get all input variables
+            if line.startswith('INPUT_'):
+                input_variables[str(line[6])] = line.split('=')[1];
+            # get all kernel information
+            elif line.split('=')[0] in kernel_specs:
+                set_kernel_specs[str(line.split('=')[0])] = line.split('=')[1];
+            # and all other things: the script lines to execute
+            else:
+                execute_lines.append(line);
+
+        print(str(set_kernel_specs));
+
+        print('\033[0m');
+        # now collect input data
+        var_values = {};
+        for varid, inputvar in input_variables.items():
+            try:
+                var_value = inputvar.split(';');
+                try:
+                    input_default = var_value[1];
+                    input_title = var_value[0];
+                    tag_value = input(f'{input_title} [{input_default}]: ');
+                    if tag_value == '':
+                        tag_value = input_default;
+                except IndexError:
+                    input_title = var_value[0];
+                    tag_value = input(f'{input_title}: ');
+
+                var_values[int(varid)] = tag_value;
+            except IndexError:
+                print(f'Warning: Skipping line "{inputvar}" due to parsing error!');
+
+        print('\033[0m');
+        # EXECUTE ALL LINES SPECIFIED IN execute_lines
+        for line in execute_lines:
+            for replace_item, replace_value in var_values.items():
+                if '$'+str(replace_item) in line:
+                    line = line.replace('$'+str(replace_item), replace_value);
+                
+            if dry_run == True:
+                print(f"[DRY RUN] Would execute: {line}");
+            else:
+                ssh_session.sendline(str(line));
+
+    else:
+        print('No kernel script templates available!');
+
+    print(f'Remote Host successfully initalized with script template {template_to_install}');
+    # logout ssh session
+    ssh_session.logout();
+
+    # now create a local kernel with the given information
+    set_kernel_specs = { key.lower(): val for key, val in set_kernel_specs.items() };
+    set_kernel_specs['loginnode'] = loginnode;
+    set_kernel_specs['user'] = user;
+    set_kernel_specs['proxyjump'] = proxy;
+
+    # get kernel name
+    if not 'kernel_displayname' in set_kernel_specs.keys():
+        set_kernel_specs['kernel_displayname'] = input('Name of the new jupyter slurm kernel: ');
+
+    print('Please specify the Slurm job parameter to start the job with (comma-separated, e.g. "account=hpc,time=00:00:00"):');
+
+    slurm_parameter = input('Slurm job parameter: ');
+    set_kernel_specs['slurm_parameter'] = slurm_parameter;
+
+    add_slurm_kernel(**set_kernel_specs);
+
+# TODO: Test kernel configuration
+def test_slurm_kernel ():
+    pass;
+
 def main (cmd_line=None):
 
     parser = argparse.ArgumentParser('Tool to manage (create, list, modify and delete) and starting jupyter slurm kernels using srun');
@@ -267,6 +419,15 @@ def main (cmd_line=None):
 
     delete_option = subparser.add_parser('delete', help='delete an existing slurm kernel');
 
+    rinit_option = subparser.add_parser('rinit', help='initialize remote environment (IPython env, IJulia env, ...)');
+    rinit_option.add_argument('--dry-run', action='store_true', required=False, help='Activate dry-run mode. Do not execute script lines.');
+    rinit_option.add_argument('--loginnode', required=False, help='The login node to connect to');
+    rinit_option.add_argument('--user', help='The username to log in to the loginnode');
+    rinit_option.add_argument('--proxyjump', help='Add a proxy jump (SSH -J)');
+
+    from slurm_jupyter_kernel.__init__ import __version__;
+    parser.add_argument('--version', action='version', version='%(prog)s ({version})'.format(version=__version__));
+
     if len(sys.argv) == 1:
         parser.print_help();
         sys.exit();
@@ -280,6 +441,8 @@ def main (cmd_line=None):
         modify_slurm_kernel(args.editor);
     elif args.command == 'delete':
         delete_slurm_kernel();
+    elif args.command == 'rinit':
+        remote_initialization(args.loginnode, args.user, args.proxyjump, args.dry_run);
 
 if __name__ == '__main__':
     main();
