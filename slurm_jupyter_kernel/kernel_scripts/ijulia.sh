@@ -3,6 +3,7 @@
 INPUT_1=Load required software;module load lang JuliaHPC
 INPUT_2=Julia Project Path;$HOME/ijulia
 INPUT_3=Julia Depot Path;$HOME/.julia
+INPUT_4=Environment variables;JULIA_NUM_THREADS=4
 
 # commands to execute on remote host
 $1
@@ -15,3 +16,4 @@ chmod +x $2/ijulia_wrapper.sh
 # kernel settings
 KERNEL_LANGUAGE=julia
 KERNEL_CMD=$2/ijulia_wrapper.sh julia -i --color=yes --project=$2 $3/.julia/packages/IJulia/AQu2H/src/kernel.jl {connection_file}
+ENVIRONMENT=$4
