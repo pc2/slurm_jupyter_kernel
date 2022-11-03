@@ -13,6 +13,7 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
     - [Install using pip](#install-using-pip)
+  - [Requirements for usage](#requirements-for-usage)
   - [Create a new kernel](#create-a-new-kernel)
     - [IPython Example](#ipython-example)
       - [Remote Host](#remote-host)
