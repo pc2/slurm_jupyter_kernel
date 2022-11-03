@@ -38,6 +38,12 @@ python3 -m pip install slurm_jupyter_kernel
 python3 -m pip install git+https://github.com/pc2/slurm_jupyter_kernel.git
 ```
 
+## Requirements for usage
+
+* SSH-Key based authentication
+
+You need a running SSH agent with the loaded key file to access the loginnode without a password.
+
 ## Create a new kernel
 
 We assume to install the Jupyter kernel tools into your `$HOME` directory on your cluster.
