@@ -28,6 +28,8 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
 
 ## Installation
 
+`slurm_jupyter_kernel` must be installed locally where the Jupyter notebooks will run.
+
 ### Install using pip
 
 ```bash
