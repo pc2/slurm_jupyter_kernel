@@ -22,7 +22,7 @@ try:
 except ImportError:
     from IPython.kernel import kernelspec;
 
-def add_slurm_kernel (kernel_displayname, kernel_language, kernel_cmd, slurm_parameter, loginnode, user, proxyjump, srun_cmd="srun", environment=None):
+def add_slurm_kernel (kernel_displayname, kernel_language, kernel_cmd, slurm_parameter, loginnode, user, proxyjump, srun_cmd="srun", kernel_environment=None):
    
     print(f"\n\033[94m\u2687\033[0m Try to create slurm kernel '{kernel_displayname}'... \033[0m");
     args = [str(sys.executable), '-m', 'slurm_jupyter_kernel'];
@@ -45,8 +45,8 @@ def add_slurm_kernel (kernel_displayname, kernel_language, kernel_cmd, slurm_par
     username = getpass.getuser();
 
     kernel_env = {}
-    if not environment is None:
-        kernel_env = dict( (key.strip(), val.strip()) for key, val in (item.split('=') for item in environment.split(',')) ); 
+    if not kernel_environment is None:
+        kernel_env = dict( (key.strip(), val.strip()) for key, val in (item.split('=') for item in kernel_environment.split(',')) ); 
         args.extend(['--environment', str(kernel_env)]);
 
     json_kernel = {
@@ -258,7 +258,7 @@ def remote_initialization (loginnode=None, user=None, proxyjump=None, dry_run=Fa
 
     template_directory = os.path.dirname(slurm_jupyter_kernel.__file__) + '/kernel_scripts';
     ssh_options = {};
-    kernel_specs = ['KERNEL_LANGUAGE', 'KERNEL_DISPLAYNAME', 'KERNEL_CMD', 'ENVIRONMENT'];
+    kernel_specs = ['KERNEL_LANGUAGE', 'KERNEL_DISPLAYNAME', 'KERNEL_CMD', 'KERNEL_ENVIRONMENT'];
 
     # get info to start up ssh connection
     proxy = '';
