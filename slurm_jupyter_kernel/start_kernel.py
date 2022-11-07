@@ -41,7 +41,7 @@ class remoteslurmkernel:
         for parameter, value in self.slurm_parameter.items():
             cmd_args.append(f'--{parameter}={value}');
 
-        cmd_args = " ".join(cmd_args);
+        cmd_args = "\ ".join(cmd_args);
 
         # ssh cmd
         proxyjump = '';
@@ -49,7 +49,7 @@ class remoteslurmkernel:
             proxyjump = f'-J {self.proxyjump}';
         ssh_cmd = f'ssh -tA {proxyjump} {self.loginnode}';
 
-        cmd = f'{ssh_cmd} {self.srun_cmd} {cmd_args} -J {default_slurm_job_name} -vu bash -i';
+        cmd = f'{ssh_cmd} /bin/bash --login -c "{self.srun_cmd}\ {cmd_args}\ -J\ {default_slurm_job_name}\ -vu\ bash\ -i"';
 
         logging.debug(f"Running slurm kernel command: {cmd}");
         
