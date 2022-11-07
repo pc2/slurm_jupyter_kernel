@@ -15,5 +15,5 @@ chmod +x $2/ijulia_wrapper.sh
 
 # kernel settings
 KERNEL_LANGUAGE=julia
-KERNEL_CMD=$2/ijulia_wrapper.sh julia -i --color=yes --project=$2 $3/.julia/packages/IJulia/AQu2H/src/kernel.jl {connection_file}
-ENVIRONMENT=$4
+KERNEL_CMD=$2/ijulia_wrapper.sh julia -i --color=yes --project=$2 $3/packages/IJulia/AQu2H/src/kernel.jl {connection_file}
+KERNEL_ENVIRONMENT=$4
