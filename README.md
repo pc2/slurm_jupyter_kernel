@@ -13,8 +13,11 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
     - [Install using pip](#install-using-pip)
+      - [Install the unstable version](#install-the-unstable-version)
   - [Requirements for usage](#requirements-for-usage)
   - [Create a new kernel](#create-a-new-kernel)
+    - [Using template scripts](#using-template-scripts)
+      - [Example](#example)
     - [IPython Example](#ipython-example)
       - [Remote Host](#remote-host)
       - [Localhost](#localhost)
@@ -23,7 +26,7 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
       - [Localhost](#localhost-1)
     - [Set kernel-specific environment](#set-kernel-specific-environment)
   - [Using the kernel with Quarto](#using-the-kernel-with-quarto)
-    - [Example](#example)
+    - [Example](#example-1)
   - [Get help](#get-help)
 
 ## Installation
@@ -50,6 +53,38 @@ You need a running SSH agent with the loaded key file to access the loginnode wi
 ## Create a new kernel
 
 We assume to install the Jupyter kernel tools into your `$HOME` directory on your cluster.
+
+### Using template scripts
+
+With `$ slurmkernel rinit` you can call pre-defined template scripts to initialize your remote environment with IJulia, IPython, ...
+
+#### Example
+
+```bash
+$ slurmkernel rinit --proxyjump lb.hpc.de --loginnode login1 --user hpcuser1
+Try to establish a ssh connection to ln-0001
+✓ Successfully established SSH session!
+
+List of available templates:
+[0] ipython.sh
+[1] ijulia.sh
+Please choose a kernel script template to install using the identifier: 0
+
+Try to parse ipython.sh...
+
+Load required software [module load lang Python]:
+Location to install [$HOME]: 
+
+Remote Host successfully initalized with script template ipython.sh
+Name of the new jupyter slurm kernel: RemotePy
+Please specify the Slurm job parameter to start the job with (comma-separated, e.g. "account=hpc,time=00:00:00"):
+Slurm job parameter: account=hpcgroup1,time=01:00:00
+
+⚇ Try to create slurm kernel 'RemotePy'... 
+✔ Successfully created kernel: /Users/mawi/Library/Jupyter/kernels/slurm_remotepy
+```
+
+If you want to create your own template scripts, see here: [Create Script Templates](wiki/Create-Template-Scripts)
 
 ### IPython Example
 
