@@ -7,9 +7,16 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
 
 ![How it works](imgs/how_it_works.png)
 
+## Features
+
+* Manage your slurm jupyter kernel (manually create, list, modify or delete)
+* Use pre-defined script templates for remote inizialization and local jupyter kernel creation
+* Custom environment variables supported (e.g. JULIA_NUM_THREADS)
+
 ## Table of Contents
 
 - [Slurm Jupyter Kernel](#slurm-jupyter-kernel)
+  - [Features](#features)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
     - [Install using pip](#install-using-pip)
@@ -179,15 +186,18 @@ https://quarto.org/
 ```bash
 $ slurmkernel --help
 
-usage: Tool to manage jupyter slurm kernels [-h] {create,list,modify,delete} ...
+usage: Tool to manage (create, list, modify and delete) and starting jupyter slurm kernels using srun [-h] [--version] {create,list,modify,delete,rinit} ...
 
 positional arguments:
-  {create,list,modify,delete}
+  {create,test,list,modify,delete,rinit}
     create              create a new slurm kernel
     list                list available slurm kernel
     modify              modify an existing slurm kernel
     delete              delete an existing slurm kernel
+    rinit               initialize remote environment (IPython env, IJulia env, ...)
 
 optional arguments:
   -h, --help            show this help message and exit
+  --version             show program's version number and exit
+
 ```
