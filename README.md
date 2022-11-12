@@ -7,16 +7,19 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
 
 ![How it works](imgs/how_it_works.png)
 
-## Features
+## Features & Use-Cases
 
-* Manage your slurm jupyter kernel (manually create, list, modify or delete)
-* Use pre-defined script templates for remote inizialization and local jupyter kernel creation
+* Start Remote Jupyter kernel using srun (Slurm)
+  * Access to your local filesystem with remote code execution
+* Manage existing Slurm Jupyter kernel
+* Use the template module to use pre-defined script templates for remote installation and local kernel creation
 * Custom environment variables supported (e.g. JULIA_NUM_THREADS)
+  * Environment variables will be sent to session before starting the kernel
 
 ## Table of Contents
 
 - [Slurm Jupyter Kernel](#slurm-jupyter-kernel)
-  - [Features](#features)
+  - [Features & Use-Cases](#features--use-cases)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
     - [Install using pip](#install-using-pip)
@@ -24,6 +27,7 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
   - [Requirements for usage](#requirements-for-usage)
   - [Create a new kernel](#create-a-new-kernel)
     - [Using template scripts](#using-template-scripts)
+    - [Template module (Script templates)](#template-module-script-templates)
       - [Example](#example)
     - [IPython Example](#ipython-example)
       - [Remote Host](#remote-host)
@@ -62,14 +66,17 @@ You need a running SSH agent with the loaded key file to access the loginnode wi
 We assume to install the Jupyter kernel tools into your `$HOME` directory on your cluster.
 
 ### Using template scripts
+### Template module (Script templates)
 
-With `$ slurmkernel rinit` you can call pre-defined template scripts to initialize your remote environment with IJulia, IPython, ...
+With `$ slurmkernel template {list, use, add, edit}` you can use pre-defined script templates to initialize your remote environment (IJulia, IPython, ...), add new script templates or edit existing templates.
+
+If you want to create your own script templates, see here: [Create Script Templates](wiki/Create-Template-Scripts)
 
 #### Example
 
 ```bash
-$ slurmkernel rinit --proxyjump lb.hpc.de --loginnode login1 --user hpcuser1
-Try to establish a ssh connection to ln-0001
+$ slurmkernel template use --proxyjump lb.hpc.de --loginnode login1 --user hpcuser1
+Try to establish a ssh connection to login1
 ✓ Successfully established SSH session!
 
 List of available templates:
@@ -90,8 +97,6 @@ Slurm job parameter: account=hpcgroup1,time=01:00:00
 ⚇ Try to create slurm kernel 'RemotePy'... 
 ✔ Successfully created kernel: /Users/mawi/Library/Jupyter/kernels/slurm_remotepy
 ```
-
-If you want to create your own template scripts, see here: [Create Script Templates](wiki/Create-Template-Scripts)
 
 ### IPython Example
 
