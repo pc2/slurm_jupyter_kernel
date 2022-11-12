@@ -93,7 +93,7 @@ def add_slurm_kernel (kernel_displayname, kernel_language, kernel_cmd, slurm_par
 
     kernel_path = kernelspec.install_kernel_spec(tempdir, kerneldir_name, user=username);
 
-    print(f'\033[94m\u2714\033[0m \033[95m\033[0mSuccessfully created kernel: {kernel_path}\033[0m');
+    print(f'{Color.F_LightGreen}\u2714\033[0m Successfully created kernel: {kernel_path}{Color.F_Default}');
 
 def delete_slurm_kernel ():
     
