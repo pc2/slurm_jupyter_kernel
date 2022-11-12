@@ -33,6 +33,8 @@ class SSHConnectionError (Exception):
     pass;
 class SSHAgentNotRunning (Exception):
     pass;
+class RenderTemplateError (Exception):
+    pass;
 
 class ScriptTemplate:
 
@@ -58,11 +60,14 @@ class ScriptTemplate:
 
             while True:
                 template_to_install = input('Please choose a kernel script template to install using the \033[94midentifier\033[0m:\033[94m ');
+                if template_to_install == '':
+                    print(f'{Color.F_LightRed}Invalid identifier{Color.F_Default}');
+                    continue;
                 try:
                     template_to_install = script_templates[int(template_to_install)];
                     break;
                 except IndexError:
-                    print(f'Kernel script template with id {template_to_install} not found!\033[0m');
+                    print(f'{Color.F_LightRed}Kernel script template with id {template_to_install} not found!{Color.F_Default}');
                     continue;
 
             print('\033[0m');
@@ -201,10 +206,10 @@ class ScriptTemplate:
                 if '$'+str(replace_item) in value:
                     set_kernel_specs[str(type_spec)] = set_kernel_specs[str(type_spec)].replace('$'+str(replace_item), replace_value);
 
-        #else:
-        #    print('No kernel script templates available!');
-
         ssh_session.logout();
+
+        if len(input_variables) < 1 or len(set_kernel_specs) < 1:
+            raise RenderTemplateError();
 
         # return kernel information
         set_kernel_specs = { key.lower(): val for key, val in set_kernel_specs.items() };
@@ -268,22 +273,3 @@ class ScriptTemplate:
             return True;
         else:
             raise OSError('No script template given');
-
-    def choose_template (self):
-
-        if self.template_directory:
-            template_scripts = [ script for script in os.listdir(self.template_directory) if script.endswith('.sh') ];
-            if len(template_scripts) >= 1:
-                id = 0;
-                for script in template_scripts:
-                    print(f'\033[94m[{id}]\033[0m {script}');
-                    id += 1;
-
-                while True:
-                    template_to_install = input('Please choose a kernel script template to install using the \033[94midentifier\033[0m:\033[94m ');
-                    try:
-                        template_to_install = template_scripts[int(template_to_install)];
-                        break;
-                    except IndexError:
-                        print(f'Kernel script template with id {template_to_install} not found!\033[0m');
-                        continue;
