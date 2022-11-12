@@ -26,7 +26,6 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
       - [Install the unstable version](#install-the-unstable-version)
   - [Requirements for usage](#requirements-for-usage)
   - [Create a new kernel](#create-a-new-kernel)
-    - [Using template scripts](#using-template-scripts)
     - [Template module (Script templates)](#template-module-script-templates)
       - [Example](#example)
     - [IPython Example](#ipython-example)
@@ -65,7 +64,6 @@ You need a running SSH agent with the loaded key file to access the loginnode wi
 
 We assume to install the Jupyter kernel tools into your `$HOME` directory on your cluster.
 
-### Using template scripts
 ### Template module (Script templates)
 
 With `$ slurmkernel template {list, use, add, edit}` you can use pre-defined script templates to initialize your remote environment (IJulia, IPython, ...), add new script templates or edit existing templates.
