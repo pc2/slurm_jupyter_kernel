@@ -343,29 +343,32 @@ def main (cmd_line=None):
                 kernel_specs_info = template.use(args.loginnode, args.user, args.proxyjump, args.dry_run);
                 add_slurm_kernel(**kernel_specs_info);
             except script_template.SSHConnectionError:
-                print('Error: Could not establish a connection to host\nPlease check following things:\n* Username is correct\n* Running SSH agent with loaded key file\n* proxyjump, loginnode or username is correct');
+                sys.exit(f'{Color.F_LightRed}Error: Could not establish a connection to host\nPlease check following things:\n* Username is correct\n* Running SSH agent with loaded key file\n* proxyjump, loginnode or username is correct{Color.F_Default}');
             except script_template.SSHAgentNotRunning:
-                print('Error: Please start your SSH agent and load your SSH key: eval $(ssh-agent) && ssh-add');
+                sys.exit(f'{Color.F_LightRed}Error: Please start your SSH agent and load your SSH key: eval $(ssh-agent) && ssh-add{Color.F_Default}');
+            except script_template.RenderTemplateError:
+                sys.exit(f'{Color.F_LightRed}Error: The template seems to be broken!{Color.F_Default}');
+
         elif args.subcommand == 'add':
             new_template = script_template.ScriptTemplate(args.template);
             try:
                 save_template = new_template.save();
                 if save_template:
-                    print(f'Template {args.template} saved!');
+                    sys.exit(f'{Color.F_LightGreen}Added template {args.template}!{Color.F_Default}');
                 else:
                     print('Error...');
             except script_template.WrongFileType:
-                sys.exit('Wrong filetype! ".sh" needed!');
+                sys.exit(f'{Color.F_LightRed}Wrong filetype! ".sh" needed!{Color.F_Default}');
             except script_template.FileAlreadyExists:
-                sys.exit(f'The template {args.template} already exists! You may want to rename your template.');
+                sys.exit(f'{Color.F_LightRed}The template {args.template} already exists! You may want to rename your template.{Color.F_LightRed}');
         elif args.subcommand == 'edit':
             template = script_template.ScriptTemplate(args.template);
             try:
                 edit = template.edit(args.editor);
                 if edit:
-                    print(f'Template {args.template} successfully edited!');
+                    sys.exit(f'{Color.F_LightGreen}Template {args.template} successfully edited!{Color.F_Default}');
             except script_template.NoEditorGiven:
-                sys.exit('No editor specified! Neither $EDITOR is set nor an editor was specified (--editor)!');
+                sys.exit(f'{Color.F_LightRed}No editor specified! Neither $EDITOR is set nor an editor was specified (--editor)!{Color.F_Default}');
 
 if __name__ == '__main__':
     main();
