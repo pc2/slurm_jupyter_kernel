@@ -14,6 +14,7 @@ import tempfile;
 import subprocess
 from venv import create;
 import slurm_jupyter_kernel;
+from slurm_jupyter_kernel import script_template;
 from pathlib import Path;
 from shutil import copy, rmtree 
 from pexpect import pxssh;
@@ -21,6 +22,26 @@ try:
     from jupyter_client import kernelspec;
 except ImportError:
     from IPython.kernel import kernelspec;
+
+class Color:
+    # Foreground
+    F_Default = "\x1b[39m"
+    F_Black = "\x1b[30m"
+    F_Red = "\x1b[31m"
+    F_Green = "\x1b[32m"
+    F_Yellow = "\x1b[33m"
+    F_Blue = "\x1b[34m"
+    F_Magenta = "\x1b[35m"
+    F_Cyan = "\x1b[36m"
+    F_LightGray = "\x1b[37m"
+    F_DarkGray = "\x1b[90m"
+    F_LightRed = "\x1b[91m"
+    F_LightGreen = "\x1b[92m"
+    F_LightYellow = "\x1b[93m"
+    F_LightBlue = "\x1b[94m"
+    F_LightMagenta = "\x1b[95m"
+    F_LightCyan = "\x1b[96m"
+    F_White = "\x1b[97m"
 
 def add_slurm_kernel (kernel_displayname, kernel_language, kernel_cmd, slurm_parameter, loginnode, user, proxyjump, srun_cmd="srun", kernel_environment=None):
    
@@ -145,9 +166,6 @@ def modify_slurm_kernel (editor=None):
             except KeyError:
                 print(f'\033[91m$EDITOR not set. Please explicity set an editor with --editor (e.g. --editor vim)\033[0m\n');
                 sys.exit();
-        else:
-            # TODO: Check explicity set editor (which editor)
-            pass;
 
         while True:
             edit_process = subprocess.Popen(f'{editor} {kernelspec}', shell=True);
@@ -254,160 +272,6 @@ def yninput (inputstr=''):
         else:
             continue;
 
-def remote_initialization (loginnode=None, user=None, proxyjump=None, dry_run=False):
-
-    template_directory = os.path.dirname(slurm_jupyter_kernel.__file__) + '/kernel_scripts';
-    ssh_options = {};
-    kernel_specs = ['KERNEL_LANGUAGE', 'KERNEL_DISPLAYNAME', 'KERNEL_CMD', 'KERNEL_ENVIRONMENT'];
-
-    # get info to start up ssh connection
-    proxy = '';
-    if proxyjump is None:
-        if not loginnode or not user:
-            proxyjump = input('SSH Proxyjump (leave empty if not needed): ');
-            if not proxyjump == '':
-                proxy = proxyjump;
-                ssh_options['ProxyJump'] = proxyjump;
-    else:
-        proxy = proxyjump;
-        ssh_options['ProxyJump'] = proxyjump;
-    if loginnode is None:
-        loginnode = input('SSH Loginnode: ');
-    if user is None:
-        user = input(f'Username for {loginnode}: ');
-
-    # startup ssh connection
-    while True:
-        try:
-            print(f'\nTry to establish a ssh connection to {loginnode}');
-            ssh_session = pxssh.pxssh(options=ssh_options);
-            ssh_session.login(loginnode, user);
-        except pxssh.ExceptionPxssh:
-            sys.exit(f'Error: Could not establish a connection to host {loginnode}\nPlease check following things:\n* Running SSH agent with loaded key file\n* proxyjump, loginnode or username is correct');
-
-        # TODO: SSH Session error handling
-        if not ssh_session is None:
-            print(f'\u2713 Successfully established SSH session!\n');
-            break;
-
-    # checkout which template to use
-    print('List of available templates:');
-
-    template_scripts = [ script for script in os.listdir(template_directory) if script.endswith('.sh') ];
-    if len(template_scripts) >= 1:
-        id = 0;
-        for script in template_scripts:
-            print(f'\033[94m[{id}]\033[0m {script}');
-            id += 1;
-
-        while True:
-            template_to_install = input('Please choose a kernel script template to install using the \033[94midentifier\033[0m:\033[94m ');
-            try:
-                template_to_install = template_scripts[int(template_to_install)];
-                break;
-            except IndexError:
-                print(f'Kernel script template with id {template_to_install} not found!\033[0m');
-                continue;
-
-        print('\033[0m');
-
-        script_to_install = template_directory + '/' + template_to_install;
-
-        script = open(script_to_install, 'r');
-        print(f'Try to parse {template_to_install}...');
-
-        input_variables = {};
-        set_kernel_specs = {};
-        execute_lines = [];
-        for line in script.readlines():
-            line = line.replace('\n', '');
-            if line == '' or line.startswith('#'):
-                continue;
-
-            # get all input variables
-            if line.startswith('INPUT_'):
-                # get everything after INPUT_* = ???
-                input_variables[str(line[6])] = '='.join(line.split('=')[1:]);
-            # get all kernel information
-            elif line.split('=')[0] in kernel_specs:
-                set_kernel_specs[str(line.split('=')[0])] = '='.join(line.split('=')[1:]);
-            # and all other things: the script lines to execute
-            else:
-                execute_lines.append(line);
-
-        print('\033[0m');
-        # now collect input data
-        var_values = {};
-        for varid, inputvar in input_variables.items():
-            try:
-                var_value = inputvar.split(';');
-                try:
-                    input_default = var_value[1];
-                    input_title = var_value[0];
-                    tag_value = input(f'{input_title} [{input_default}]: ');
-                    if tag_value == '':
-                        tag_value = input_default;
-                except IndexError:
-                    input_title = var_value[0];
-                    tag_value = input(f'{input_title}: ');
-
-                var_values[int(varid)] = tag_value;
-            except IndexError:
-                print(f'Warning: Skipping line "{inputvar}" due to parsing error!');
-
-        print('\033[0m');
-        # EXECUTE ALL LINES SPECIFIED IN execute_lines
-        for line in execute_lines:
-            for replace_item, replace_value in var_values.items():
-                if '$'+str(replace_item) in line:
-                    line = line.replace('$'+str(replace_item), replace_value);
-                
-            if dry_run == True:
-                print(f"[DRY RUN/EXECUTE TEMPLATE] Would execute: {line}");
-            else:
-                print(f'Executing following line: ' + str(line));
-                ssh_session.sendline(str(line));
-                ssh_session.prompt();
-
-        # REPLACE '$' vars in kernel specs
-        for type_spec, value in set_kernel_specs.items():
-            for replace_item, replace_value in var_values.items():
-                if '$'+str(replace_item) in value:
-                    set_kernel_specs[str(type_spec)] = set_kernel_specs[str(type_spec)].replace('$'+str(replace_item), replace_value);
-
-    else:
-        print('No kernel script templates available!');
-
-    print(f'\nRemote Host successfully initalized with script template {template_to_install}');
-    # logout ssh session
-    ssh_session.logout();
-
-    # now create a local kernel with the given information
-    set_kernel_specs = { key.lower(): val for key, val in set_kernel_specs.items() };
-    set_kernel_specs['loginnode'] = loginnode;
-    set_kernel_specs['user'] = user;
-    set_kernel_specs['proxyjump'] = proxy;
-
-    # get kernel name
-    if not 'kernel_displayname' in set_kernel_specs.keys():
-        set_kernel_specs['kernel_displayname'] = input('Name of the new jupyter slurm kernel: ');
-
-    print('Please specify the Slurm job parameter to start the job with (comma-separated, e.g. "account=hpc,time=00:00:00"):');
-
-    slurm_parameter = input('Slurm job parameter: ');
-    set_kernel_specs['slurm_parameter'] = slurm_parameter;
-
-    if dry_run == True:
-        print('\n[DRY RUN/KERNEL CREATION] Would now create a local jupyter kernel with following kernel specs:\n');
-        print(f'{set_kernel_specs}');
-        sys.exit();
-
-    add_slurm_kernel(**set_kernel_specs);
-
-# TODO: Test kernel configuration
-def test_slurm_kernel ():
-    pass;
-
 def main (cmd_line=None):
 
     parser = argparse.ArgumentParser('Tool to manage (create, list, modify and delete) and starting jupyter slurm kernels using srun');
@@ -434,11 +298,24 @@ def main (cmd_line=None):
 
     delete_option = subparser.add_parser('delete', help='delete an existing slurm kernel');
 
-    rinit_option = subparser.add_parser('rinit', help='initialize remote environment (IPython env, IJulia env, ...)');
-    rinit_option.add_argument('--dry-run', action='store_true', required=False, help='Activate dry-run mode. Do not execute script lines or create kernel.');
-    rinit_option.add_argument('--loginnode', required=False, help='The login node to connect to');
-    rinit_option.add_argument('--user', help='The username to log in to the loginnode');
-    rinit_option.add_argument('--proxyjump', help='Add a proxy jump (SSH -J)');
+    template_option = subparser.add_parser('template', help='manage script templates (list, use, add, edit)');
+    template_subparser = template_option.add_subparsers(dest='subcommand');
+
+    template_list = template_subparser.add_parser('list', help='List all availabe script templates');
+
+    template_use = template_subparser.add_parser('use', help='Use a script template (Remote-Initialization)');
+    template_use.add_argument('--dry-run', action='store_true', required=False, help='Activate dry-run mode. Do not execute script lines or create kernel.');
+    template_use.add_argument('--loginnode', '-l', required=False, help='The login node to connect to');
+    template_use.add_argument('--user', '-u', help='The username to log in to the loginnode');
+    template_use.add_argument('--proxyjump', '-p', help='Add a proxy jump (SSH -J)');
+    template_use.add_argument('--template', '-t', required=False, help='The template to use (ipython, ijulia, ...)');
+
+    template_add = template_subparser.add_parser('add', help='Add a new script template for remote initialization');
+    template_add.add_argument('--template', '-t', required=True, help='Path to the script template');
+
+    template_edit = template_subparser.add_parser('edit', help='Edit an existing script template');
+    template_edit.add_argument('--template', '-t', required=True, help='The template to use (ipython, ijulia, ...)');
+    template_edit.add_argument('--editor', '-e', required=False, help='Editor to use (Default: $EDITOR)');
 
     from slurm_jupyter_kernel.__init__ import __version__;
     parser.add_argument('--version', action='version', version='%(prog)s ({version})'.format(version=__version__));
@@ -446,8 +323,8 @@ def main (cmd_line=None):
     if len(sys.argv) == 1:
         parser.print_help();
         sys.exit();
-    args = parser.parse_args(cmd_line);
 
+    args = parser.parse_args(cmd_line);
     if args.command == 'create':
         add_slurm_kernel(args.displayname, args.language, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.user, args.proxyjump, args.srun_cmd, args.environment);
     elif args.command == 'list':
@@ -456,9 +333,39 @@ def main (cmd_line=None):
         modify_slurm_kernel(args.editor);
     elif args.command == 'delete':
         delete_slurm_kernel();
-    elif args.command == 'rinit':
-        remote_initialization(args.loginnode, args.user, args.proxyjump, args.dry_run);
+    elif args.command == 'template':
+        if args.subcommand == 'list':
+            script_template.ScriptTemplate.list_templates();
+        elif args.subcommand == 'use':
+            #remote_initialization(args.loginnode, args.user, args.proxyjump, args.dry_run);
+            template = script_template.ScriptTemplate(args.template);
+            try:
+                kernel_specs_info = template.use(args.loginnode, args.user, args.proxyjump, args.dry_run);
+                add_slurm_kernel(**kernel_specs_info);
+            except script_template.SSHConnectionError:
+                print('Error: Could not establish a connection to host\nPlease check following things:\n* Username is correct\n* Running SSH agent with loaded key file\n* proxyjump, loginnode or username is correct');
+            except script_template.SSHAgentNotRunning:
+                print('Error: Please start your SSH agent and load your SSH key: eval $(ssh-agent) && ssh-add');
+        elif args.subcommand == 'add':
+            new_template = script_template.ScriptTemplate(args.template);
+            try:
+                save_template = new_template.save();
+                if save_template:
+                    print(f'Template {args.template} saved!');
+                else:
+                    print('Error...');
+            except script_template.WrongFileType:
+                sys.exit('Wrong filetype! ".sh" needed!');
+            except script_template.FileAlreadyExists:
+                sys.exit(f'The template {args.template} already exists! You may want to rename your template.');
+        elif args.subcommand == 'edit':
+            template = script_template.ScriptTemplate(args.template);
+            try:
+                edit = template.edit(args.editor);
+                if edit:
+                    print(f'Template {args.template} successfully edited!');
+            except script_template.NoEditorGiven:
+                sys.exit('No editor specified! Neither $EDITOR is set nor an editor was specified (--editor)!');
 
 if __name__ == '__main__':
     main();
-
