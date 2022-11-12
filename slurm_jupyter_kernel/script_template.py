@@ -131,7 +131,7 @@ class ScriptTemplate:
 
             # TODO: SSH Session error handling
             if not ssh_session is None:
-                print(f'\u2713 Successfully established SSH session!\n');
+                print(f'{Color.F_LightGreen}\u2713 Successfully established SSH session!{Color.F_Default}\n');
                 break;
 
         if self.template:
@@ -196,7 +196,7 @@ class ScriptTemplate:
             if dry_run == True:
                 print(f"[DRY RUN/EXECUTE TEMPLATE] Would execute: {line}");
             else:
-                print(f'Executing following line: ' + str(line));
+                print(f'Executing following line: {Color.F_Blue}' + str(line) + f'{Color.F_Default}');
                 ssh_session.sendline(str(line));
                 ssh_session.prompt();
 
@@ -219,7 +219,7 @@ class ScriptTemplate:
 
         # get kernel name
         if not 'kernel_displayname' in set_kernel_specs.keys():
-            set_kernel_specs['kernel_displayname'] = input('Name of the new jupyter slurm kernel: ');
+            set_kernel_specs['kernel_displayname'] = input(f'Display Name of the new Jupyter kernel (will be shown in e.g. JupyterLab): ');
 
         print('Please specify the Slurm job parameter to start the job with (comma-separated, e.g. "account=hpc,time=00:00:00"):');
 
