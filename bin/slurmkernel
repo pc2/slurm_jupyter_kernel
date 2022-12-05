@@ -293,7 +293,7 @@ def main (cmd_line=None):
     list_option.add_argument('-v', '--verbose', action='store_true', required=False, help='Print all kernel with the kernelspec information');
     list_option.add_argument('-a', '--all', action='store_true', required=False, help='Print all available Jupyter kernels');
 
-    modify_option = subparser.add_parser('modify', help='modify an existing slurm kernel');
+    modify_option = subparser.add_parser('edit', help='edit an existing slurm kernel');
     modify_option.add_argument('-e', '--editor', help='Set a specific editor to modify the kernelspec (default: $EDITOR)');
 
     delete_option = subparser.add_parser('delete', help='delete an existing slurm kernel');
@@ -329,7 +329,7 @@ def main (cmd_line=None):
         add_slurm_kernel(args.displayname, args.language, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.user, args.proxyjump, args.srun_cmd, args.environment);
     elif args.command == 'list':
         list_slurm_kernel(all=args.all, verbose=args.verbose);
-    elif args.command == 'modify':
+    elif args.command == 'edit':
         modify_slurm_kernel(args.editor);
     elif args.command == 'delete':
         delete_slurm_kernel();
