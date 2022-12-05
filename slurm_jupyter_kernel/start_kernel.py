@@ -2,9 +2,9 @@
 
 import argparse;
 import json;
-import pexpect;
 import logging;
 import os;
+import re;
 import ast;
 import subprocess;
 import time;
@@ -16,7 +16,19 @@ logging.basicConfig(level=logging.DEBUG);
 # handle kernel as an object
 class remoteslurmkernel:
 
-    cmd_slurm_get_state = 'squeue -j {job_id} -ho "%T"'; 
+    cmd_slurm_get_state = 'squeue -j {job_id} -ho "%T"';
+    default_sbatch_job = """#!/bin/bash
+#SBATCH -J jupyter_slurm_kernel
+{SBATCH_JOB_FLAGS}
+
+tmpfile=$(mktemp)
+cat << EOF > $tmpfile
+{KERNEL_CONNECTION_INFO}
+EOF
+connection_file=$tmpfile
+
+{COMMAND}    
+""";
 
     def __init__ (self, kernel_cmd, connection_file, slurm_parameter, loginnode, proxyjump, srun_cmd, environment):
         
@@ -24,9 +36,11 @@ class remoteslurmkernel:
         self.kernelcmd = kernel_cmd;
         self.slurm_session = None;
         self.job_id = None;
+        self.exec_node = None;
         self.connection_file = json.load(open(connection_file));
         self.loginnode = loginnode;
         self.proxyjump = False;
+        self.state = 'unknown';
         if proxyjump:
             self.proxyjump = proxyjump;
         self.srun_cmd = 'srun';
@@ -41,60 +55,56 @@ class remoteslurmkernel:
 
     def start_slurm_kernel (self):
         cmd_args = [];
-        default_slurm_job_name = 'jupyter_slurm_kernel';
 
         self.slurm_parameter = dict( (key.strip(), val.strip()) for key, val in (item.split('=') for item in self.slurm_parameter.split(',')) );
         for parameter, value in self.slurm_parameter.items():
-            cmd_args.append(f'--{parameter}={value}');
+            cmd_args.append(f'#SBATCH --{parameter}={value}');
 
-        cmd_args = "\ ".join(cmd_args);
+        cmd_args = '\n'.join(cmd_args);
 
         # ssh cmd
         proxyjump = '';
         if self.proxyjump:
             proxyjump = f'-J {self.proxyjump}';
-        self.ssh_cmd = f'ssh -tA {proxyjump} {self.loginnode}';
-        
+        self.ssh_cmd = f'ssh -A {proxyjump} {self.loginnode}';
 
-        cmd = f'{self.ssh_cmd} /bin/bash --login -c "{self.srun_cmd}\ {cmd_args}\ -J\ {default_slurm_job_name}\ -vu\ bash\ -i"';
+        self.sbatch_cmd = ['/bin/bash', '--login', '-c', '"sbatch --parsable"'];
 
-        logging.info(f"Running slurm kernel command: {cmd}");
-        
-        self.slurm_session = pexpect.spawn(str(cmd), timeout=500);
-        
-        # get slurm job id
-        self.slurm_session.expect('srun: job (.*) queued and waiting for resources')
-        self.job_id = self.slurm_session.match.groups()[0];
-        self.job_id = self.job_id.decode('utf-8');
-        logging.info(f'Slurm job id: {self.job_id}');
+        # build batchfile
+        self.kernel_connection_info = json.dumps(self.connection_file);
+        self.kernelcmd = self.kernelcmd.format(remote_connection_file='$connection_file');
+        batchfile = self.default_sbatch_job.format(SBATCH_JOB_FLAGS=cmd_args, KERNEL_CONNECTION_INFO=self.kernel_connection_info, COMMAND=self.kernelcmd);
 
-        check_state_thread = Thread(target=self.check_slurm_job);
-        check_state_thread.start();
+        run_command = self.ssh_cmd.split(' ') + self.sbatch_cmd;
+        sbatch_process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.PIPE);
+        sbatch_out, sbatch_err = sbatch_process.communicate(input=batchfile.encode());
+        sbatch_out = sbatch_out.decode('utf-8');
 
-        self.slurm_session.expect('Node (.*), .* tasks started');
-        # get execution node
-        exec_node = self.slurm_session.match.groups()[0];
-        self.exec_node = exec_node.decode('utf-8');
-        logging.info(f'Slurm execution node: {self.exec_node}');
-       
-        if not self.slurm_session == None:
+        self.job_id = re.search(r"(\d+)", sbatch_out, re.IGNORECASE);
+        if self.job_id:
+            try:
+                self.job_id = self.job_id.group(1);
+                self.job_id = int(self.job_id);
+                logging.info(f'[SLURM JOB UPDATE] Extracted Slurm job id: {self.job_id}');
+            except ValueError:
+                logging.error(f'[SLURM JOB ERROR] The extracted job id -> {self.job_id} <- does not seem to be an integer!');
 
-            if len(self.environment) >= 1:
-                for key, val in self.environment.items():
-                    logging.debug(f"Send to session: export {key}={val}")
-                    self.slurm_session.sendline(f"export {key}={val}");
+        # Check Slurm job state
+        # return function if Slurm job state is RUNNING
+        slurm_job_state = self.check_slurm_job();
+        if slurm_job_state:
+            port_forwarding = self.initialize_ssh_tunnels();
+            if not port_forwarding:
+                logging.error(f'[SLURM JOB ERROR] Could not forward ports!');
 
-            self.kernel_connection_info = json.dumps(self.connection_file);
-            logging.debug("Kernelinfo: " + str(self.kernel_connection_info));
-            self.slurm_session.sendline(f"echo '{self.kernel_connection_info}' > /tmp/rkernel.json");
+            logging.info('[SLURM JOB UPDATE] You can now use your Slurm Jupyter kernel!');
+            # keep alive to avoid Jupyter kernel restart
+            time.sleep(10000000);
 
-            self.kernelcmd = self.kernelcmd.format(remote_connection_file='/tmp/rkernel.json');
-
-            logging.debug(f"Try to initialize kernel with command: {self.kernelcmd}");
-
-            kernel_start = self.kernelcmd;
-            self.slurm_session.sendline(kernel_start);
-            self.initialize_ssh_tunnels();
+            #if len(self.environment) >= 1:
+            #    for key, val in self.environment.items():
+            #        logging.debug(f"Send to session: export {key}={val}")
+            #        self.slurm_session.sendline(f"export {key}={val}");
 
     def initialize_ssh_tunnels (self):
         if not self.exec_node == None:
@@ -115,10 +125,12 @@ class remoteslurmkernel:
 
             ssh_cmd = f'ssh -fNA -o StrictHostKeyChecking=no {PROXY_JUMP} {port_forward} {SSH_HOST}';
 
-            logging.debug(f'Establishing SSH Session with command: {ssh_cmd}');
+            logging.debug(f'[SLURM JOB UPDATE] Establishing SSH Session with command: {ssh_cmd}');
 
             # start SSH session with port forwarding
             subprocess.Popen(str(ssh_cmd), shell=True);
+
+            return True;
         else:
             logging.debug('self.exec_host is type NONE');
 
@@ -127,35 +139,38 @@ class remoteslurmkernel:
         if not self.cmd_slurm_get_state is None:
             if self.job_id:
                 self.cmd_slurm_get_state = self.cmd_slurm_get_state.format(job_id=self.job_id);
-                #self.cmd_slurm_get_state = self.cmd_slurm_get_state.split(' ');
 
-                #self.cmd_slurm_get_state = self.cmd_slurm_get_state.replace(' ', '\ ');
-                check_command = self.ssh_cmd + ' -T /bin/bash --login -c "' + self.cmd_slurm_get_state + '" 2> /dev/null';
-                check_command = check_command.split(' ');
+                check_command = self.ssh_cmd.split(' ') + ['-T', '/bin/bash', '--login', '-c', f'"squeue -h -j {self.job_id} -o \'%T %B\' 2> /dev/null"'];
 
                 while True:
-                    time.sleep(2);
-                    state = check_output(check_command);
-                    state = state.decode('utf-8');
-                    if 'PENDING' in state:
-                        logging.info('Jupyter Slurm job is in state PENDING');
+                    time.sleep(4);
+                    squeue_output = check_output(check_command);
+                    squeue_output = squeue_output.decode('utf-8').split(' ');
+                    self.state = squeue_output[0];
+
+                    if 'PENDING' in self.state:
+                        logging.debug('Jupyter Slurm job is in state PENDING');
                         continue;
-                    elif 'RUNNING' in state:
-                        logging.info('Jupyter Slurm job is now in state RUNNING! Waiting for kernel to start...');
-                        break;
+                    elif 'RUNNING' in self.state:
+                        logging.info('[SLURM JOB UPDATE] Jupyter Slurm job is now in state RUNNING! Try getting execution node...');
+                        try:
+                            self.exec_node = squeue_output[1];
+                        except IndexError:
+                            squeue_output = ' '.join(squeue_output);
+                            logging.error(f'[SLURM JOB ERROR] Could not fetch the Slurm execution node from output -> {squeue_output} <- Cannot forward remote kernel ports!');
+
+                        if self.exec_node:
+                            logging.info(f'[SLURM JOB UPDATE] Execution node: {self.exec_node}');
+                        else:
+                            logging.error(f'Failed to get execution node using following squeue output: {squeue_output}');
+
+                        return True;
                     else:
                         logging.error("Jupyter Slurm job is neither PENDING nor RUNNING?");
                         continue;
 
         else:
             raise NotImplementedError('Specify remoteslurmkernel.cmd_slurm_get_state to fetch slurm job state!');
-
-    def kernel_state (self):
-        while True:
-            if not self.slurm_session.isalive():
-                for logline in self.slurm_session.readlines():
-                    if logline.strip():
-                        logging.debug(str(logline));
 
 def slurm_jupyter_kernel ():
 
@@ -170,6 +185,4 @@ def slurm_jupyter_kernel ():
     parser.add_argument('--kernel-cmd', required=True, help='command to run jupyter kernel');
 
     args = parser.parse_args();
-
-    kernel = remoteslurmkernel(args.kernel_cmd, args.connection_file, args.slurm_parameter, args.loginnode, args.proxyjump, args.srun_cmd, args.environment);
-    kernel.kernel_state();
+    remoteslurmkernel(args.kernel_cmd, args.connection_file, args.slurm_parameter, args.loginnode, args.proxyjump, args.srun_cmd, args.environment);
