@@ -92,7 +92,7 @@ connection_file=$tmpfile
         run_command = self.ssh_cmd.split(' ') + self.sbatch_cmd;
         sbatch_process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.PIPE);
         sbatch_out, sbatch_err = sbatch_process.communicate(input=batchfile.encode());
-        sbatch_out = sbatch_out.decode('utf-8');
+        sbatch_out = sbatch_out.decode('utf-8').strip();
 
         logging.debug(f'[SLURM JOB DEBUG] sbatch command output: ' + str(sbatch_out));
 
@@ -155,7 +155,7 @@ connection_file=$tmpfile
                     time.sleep(4);
                     squeue_output = check_output(check_command);
                     squeue_output = squeue_output.decode('utf-8').split(' ');
-                    self.state = squeue_output[0];
+                    self.state = squeue_output[0].strip();
 
                     if 'PENDING' in self.state:
                         logging.debug('Jupyter Slurm job is in state PENDING');
@@ -164,6 +164,7 @@ connection_file=$tmpfile
                         logging.info('[SLURM JOB UPDATE] Jupyter Slurm job is now in state RUNNING! Try getting execution node...');
                         try:
                             self.exec_node = squeue_output[1];
+                            self.exec_node = self.exec_node.strip();
                         except IndexError:
                             squeue_output = ' '.join(squeue_output);
                             logging.error(f'[SLURM JOB ERROR] Could not fetch the Slurm execution node from output -> {squeue_output} <- Cannot forward remote kernel ports!');
