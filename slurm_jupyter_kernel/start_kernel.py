@@ -14,6 +14,9 @@ from subprocess import check_output;
 
 logging.basicConfig(level=logging.DEBUG);
 
+class UnknownSlurmHost (Exception):
+    pass;
+
 # handle kernel as an object
 class remoteslurmkernel:
 
@@ -138,6 +141,7 @@ connection_file=$tmpfile
 
         else:
             logging.error('[SLURM JOB ERROR] Cannot forward kernel ports! Execution node unknown!');
+            raise UnknownSlurmHost('[SLURM JOB ERROR] Cannot forward kernel ports! Execution node unknown!');
 
     def check_slurm_job (self):
 
@@ -163,6 +167,7 @@ connection_file=$tmpfile
                         except IndexError:
                             squeue_output = ' '.join(squeue_output);
                             logging.error(f'[SLURM JOB ERROR] Could not fetch the Slurm execution node from output -> {squeue_output} <- Cannot forward remote kernel ports!');
+                            raise UnknownSlurmHost(f'[SLURM JOB ERROR] Could not fetch the Slurm execution node from output -> {squeue_output} <- Cannot forward remote kernel ports!');
 
                         if self.exec_node:
                             logging.info(f'[SLURM JOB UPDATE] Execution node: {self.exec_node}');
