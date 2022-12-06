@@ -30,7 +30,7 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
       - [Remote Host](#remote-host)
       - [Localhost](#localhost)
     - [Set kernel-specific environment](#set-kernel-specific-environment)
-  - [Using the kernel with Quarto](#using-the-kernel-with-quarto)
+  - [Using the kernel with Applications](#using-the-kernel-with-applications)
     - [Example](#example-1)
   - [Get help](#get-help)
 
@@ -110,17 +110,12 @@ Parameter for `slurmkernel`:
 
 More information here: https://jupyter-client.readthedocs.io/en/stable/kernels.html
 
-## Using the kernel with Quarto
-
-What is Quarto?
-
-https://quarto.org/
+## Using the kernel with Applications
 
 * Install kernel as shown above 
-  *  Make sure that you pass the `--language` flag as well.
-     *  e.g. `python` or `julia`
+  *  Make sure that you pass the `--language` flag as well (e.g. `python` or `julia`)
 
-### Example
+### Quarto Example
 <img src="imgs/quarto_example.png" width="600">
 
 ## Get help
