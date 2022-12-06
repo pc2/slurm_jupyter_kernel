@@ -7,6 +7,7 @@ import os;
 import re;
 import ast;
 import subprocess;
+import threading;
 import time;
 from threading import Thread;
 from subprocess import check_output;
@@ -100,19 +101,14 @@ connection_file=$tmpfile
                 logging.info(f'[SLURM JOB UPDATE] Extracted Slurm job id: {self.job_id}');
             except ValueError:
                 logging.error(f'[SLURM JOB ERROR] The extracted job id -> {self.job_id} <- does not seem to be an integer!');
+                raise ValueError(f'[SLURM JOB ERROR] The extracted job id -> {self.job_id} <- does not seem to be an integer!');
 
         # Check Slurm job state
         # return function if Slurm job state is RUNNING
         slurm_job_state = self.check_slurm_job();
         if slurm_job_state:
-            port_forwarding = self.initialize_ssh_tunnels();
-            if not port_forwarding:
-                logging.error(f'[SLURM JOB ERROR] Could not forward ports!');
-
-            logging.info('[SLURM JOB UPDATE] You can now use your Slurm Jupyter kernel!');
-
-            # keep alive to avoid Jupyter kernel restart
-            time.sleep(10000000);            
+            port_forwarding_t = threading.Thread(target=self.initialize_ssh_tunnels);
+            port_forwarding_t.start();
 
     def initialize_ssh_tunnels (self):
         if not self.exec_node == None:
@@ -131,14 +127,15 @@ connection_file=$tmpfile
             if self.proxyjump:
                 PROXY_JUMP = f'-J {self.proxyjump},{self.loginnode}';
 
-            ssh_cmd = f'ssh -fNA -o StrictHostKeyChecking=no {PROXY_JUMP} {port_forward} {SSH_HOST}';
+            ssh_cmd = f'ssh -A -o StrictHostKeyChecking=no {PROXY_JUMP} {port_forward} {SSH_HOST}';
 
             logging.debug(f'[SLURM JOB UPDATE] Establishing SSH Session with command: {ssh_cmd}');
 
             # start SSH session with port forwarding
-            subprocess.Popen(str(ssh_cmd), shell=True);
+            # We need shell=True to provide the SSH environment (agent, loaded keys, ...)
+            ssh_tunnel_process = subprocess.Popen(ssh_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True);
+            tunnel_proc_stdout, tunnel_proc_stderr = ssh_tunnel_process.communicate();
 
-            return True;
         else:
             logging.error('[SLURM JOB ERROR] Cannot forward kernel ports! Execution node unknown!');
 
