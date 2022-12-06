@@ -1,6 +1,6 @@
 # Slurm Jupyter Kernel
 
-Manage (create, list, modify and delete) and starting jupyter slurm kernels using srun
+Manage (create, list, modify and delete) and starting jupyter slurm kernels using `sbatch`.
 
 slurmkernel is able to connect to a kernel started on a compute node using SSH port forwarding.
 You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loadbalancer)
@@ -9,12 +9,11 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
 
 ## Features & Use-Cases
 
-* Start Remote Jupyter kernel using srun (Slurm)
+* Start Remote Jupyter kernel using sbatch (Slurm)
   * Access to your local filesystem with remote code execution
 * Manage existing Slurm Jupyter kernel
 * Use the template module to use pre-defined script templates for remote installation and local kernel creation
 * Custom environment variables supported (e.g. JULIA_NUM_THREADS)
-  * Environment variables will be sent to session before starting the kernel
 
 ## Table of Contents
 
@@ -59,7 +58,7 @@ We assume to install the Jupyter kernel tools into your `$HOME` directory on you
 
 With `$ slurmkernel template {list, use, add, edit}` you can use pre-defined script templates to initialize your remote environment (IJulia, IPython, ...), add new script templates or edit existing templates.
 
-If you want to create your own script templates, see here: [Create Script Templates](wiki/Create-Template-Scripts)
+If you want to create your own script templates, see here: [Create Script Templates](https://github.com/pc2/slurm_jupyter_kernel/wiki/Create-Script-Templates)
 
 #### Example
 
