@@ -19,11 +19,10 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
 ## Table of Contents
 
 - [Slurm Jupyter Kernel](#slurm-jupyter-kernel)
-  - [Features & Use-Cases](#features--use-cases)
+  - [Features \& Use-Cases](#features--use-cases)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
     - [Install using pip](#install-using-pip)
-      - [Install the unstable version](#install-the-unstable-version)
   - [Requirements for usage](#requirements-for-usage)
   - [Create a new kernel](#create-a-new-kernel)
     - [Template module (Script templates)](#template-module-script-templates)
@@ -31,9 +30,6 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
     - [IPython Example](#ipython-example)
       - [Remote Host](#remote-host)
       - [Localhost](#localhost)
-    - [IJulia Example](#ijulia-example)
-      - [Remote Host](#remote-host-1)
-      - [Localhost](#localhost-1)
     - [Set kernel-specific environment](#set-kernel-specific-environment)
   - [Using the kernel with Quarto](#using-the-kernel-with-quarto)
     - [Example](#example-1)
@@ -47,11 +43,6 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
 
 ```bash
 python3 -m pip install slurm_jupyter_kernel
-```
-
-#### Install the unstable version
-```bash
-python3 -m pip install git+https://github.com/pc2/slurm_jupyter_kernel.git
 ```
 
 ## Requirements for usage
@@ -73,28 +64,10 @@ If you want to create your own script templates, see here: [Create Script Templa
 #### Example
 
 ```bash
-$ slurmkernel template use --proxyjump lb.hpc.de --loginnode login1 --user hpcuser1
-Try to establish a ssh connection to login1
-✓ Successfully established SSH session!
+$ slurmkernel template use --proxyjump lb.hpc.pc2.de --loginnode login001 --user hpcuser1 --template ipython
+````
 
-List of available templates:
-[0] ipython.sh
-[1] ijulia.sh
-Please choose a kernel script template to install using the identifier: 0
-
-Try to parse ipython.sh...
-
-Load required software [module load lang Python]:
-Location to install [$HOME]: 
-
-Remote Host successfully initalized with script template ipython.sh
-Name of the new jupyter slurm kernel: RemotePy
-Please specify the Slurm job parameter to start the job with (comma-separated, e.g. "account=hpc,time=00:00:00"):
-Slurm job parameter: account=hpcgroup1,time=01:00:00
-
-⚇ Try to create slurm kernel 'RemotePy'... 
-✔ Successfully created kernel: /Users/mawi/Library/Jupyter/kernels/slurm_remotepy
-```
+You will be interactively asked for the required information if you do not pass any arguments when calling `slurmkernel template use`
 
 ### IPython Example
 
@@ -118,45 +91,12 @@ remotehost ~$ echo -e '#!/bin/bash\nmodule load lang Python\n\nsource remotekern
 5. Kernel Remote Slurm kernel with command `slurmkernel`
 
 ```bash
-notebook ~$ slurmkernel create --displayname "Remote Python" \
+notebook ~$ slurmkernel create --displayname "Python 3.8.2" \
 --slurm-parameter="account=slurmaccount,time=00:30:00,partition=normal" \
 --kernel-cmd="\$HOME/remotekernel/ipy_wrapper.sh ipython kernel -f {connection_file}" \
 --proxyjump="lb.n1.pc2.uni-paderborn.de" \
 --loginnode="login-0001" \
 --language="python"
-```
-
-### IJulia Example
-
-#### Remote Host
-
-1. load required software (if necessary)
-2. Set `JULIA_DEPOT_PATH`
-3. Create a wrapper script and mark it as executable
-4. activate environment and install IJulia
-
-```bash
-remotehost ~$ module load lang Julia
-remotehost ~$ export JULIA_DEPOT_PATH=$HOME/.julia/
-remotehost ~$ echo -e '#!/bin/bash\nmodule load lang Julia\n\n"$@"' > .julia/ijulia_wrapper.sh && chmod +x .julia/ijulia_wrapper.sh
-
-remotehost ~$ julia
-julia> ]
-(julia) pkg> activate $HOME/.julia/
-(julia) pkg> add IJulia
-```
-
-#### Localhost
-
-5. Kernel Remote Slurm kernel with command `slurmkernel`
-
-```bash
-notebook ~$ slurmkernel create --displayname "Remote Julia" \
---slurm-parameter="account=slurmaccount,time=00:30:00,partition=normal" \
---kernel-cmd="\$HOME/.julia/ijulia_wrapper.sh julia -i --color=yes --project=\$HOME/.julia/ \$HOME/.julia/packages/IJulia/AQu2H/src/kernel.jl {connection_file}" \
---proxyjump="lb.n1.pc2.uni-paderborn.de" \
---loginnode="login-0001" \
---language="julia"
 ```
 
 ![Example](imgs/example.png)
@@ -189,15 +129,15 @@ https://quarto.org/
 ```bash
 $ slurmkernel --help
 
-usage: Tool to manage (create, list, modify and delete) and starting jupyter slurm kernels using srun [-h] [--version] {create,list,modify,delete,rinit} ...
+usage: Tool to manage (create, list, modify and delete) and starting jupyter slurm kernels using srun [-h] [--version] {create,list,edit,delete,template} ...
 
 positional arguments:
-  {create,test,list,modify,delete,rinit}
+  {create,list,edit,delete,template}
     create              create a new slurm kernel
     list                list available slurm kernel
-    modify              modify an existing slurm kernel
+    edit                edit an existing slurm kernel
     delete              delete an existing slurm kernel
-    rinit               initialize remote environment (IPython env, IJulia env, ...)
+    template            manage script templates (list, use, add, edit)
 
 optional arguments:
   -h, --help            show this help message and exit
