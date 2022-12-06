@@ -1,0 +1,1 @@
+include slurm_jupyter_kernel/kernel_scripts/*.sh

@@ -219,7 +219,14 @@ class ScriptTemplate:
 
         # get kernel name
         if not 'kernel_displayname' in set_kernel_specs.keys():
-            set_kernel_specs['kernel_displayname'] = input(f'Display Name of the new Jupyter kernel (will be shown in e.g. JupyterLab): ');
+            while True:
+                kernel_displayname = input(f'Display Name of the new Jupyter kernel (will be shown in e.g. JupyterLab): ');
+                if kernel_displayname == '':
+                    print(f'{Color.F_LightRed}Please enter a valid Jupyter kernel name!{Color.F_Default}');
+                    continue;
+
+                set_kernel_specs['kernel_displayname'] = kernel_displayname;
+                break;
 
         print('Please specify the Slurm job parameter to start the job with (comma-separated, e.g. "account=hpc,time=00:00:00"):');
 
