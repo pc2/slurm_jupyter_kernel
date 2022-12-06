@@ -27,6 +27,8 @@ cat << EOF > $tmpfile
 EOF
 connection_file=$tmpfile
 
+{EXTRA_ENVIRONMENT}
+
 {COMMAND}    
 """;
 
@@ -70,15 +72,25 @@ connection_file=$tmpfile
 
         self.sbatch_cmd = ['/bin/bash', '--login', '-c', '"sbatch --parsable"'];
 
+        # add extra environment variables
+        extra_environment = '';
+        if len(self.environment) >= 1:
+            for key, val in self.environment.items():
+                extra_environment += f'export {key}={val}\n';
+        else:
+            logging.debug('[SLURM JOB DEBUG] Do not add extra environment variables - Nothing found');
+
         # build batchfile
         self.kernel_connection_info = json.dumps(self.connection_file);
         self.kernelcmd = self.kernelcmd.format(remote_connection_file='$connection_file');
-        batchfile = self.default_sbatch_job.format(SBATCH_JOB_FLAGS=cmd_args, KERNEL_CONNECTION_INFO=self.kernel_connection_info, COMMAND=self.kernelcmd);
+        batchfile = self.default_sbatch_job.format(SBATCH_JOB_FLAGS=cmd_args, KERNEL_CONNECTION_INFO=self.kernel_connection_info, EXTRA_ENVIRONMENT=extra_environment, COMMAND=self.kernelcmd);
 
         run_command = self.ssh_cmd.split(' ') + self.sbatch_cmd;
         sbatch_process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.PIPE);
         sbatch_out, sbatch_err = sbatch_process.communicate(input=batchfile.encode());
         sbatch_out = sbatch_out.decode('utf-8');
+
+        logging.debug(f'[SLURM JOB DEBUG] sbatch command output: ' + str(sbatch_out));
 
         self.job_id = re.search(r"(\d+)", sbatch_out, re.IGNORECASE);
         if self.job_id:
@@ -98,13 +110,9 @@ connection_file=$tmpfile
                 logging.error(f'[SLURM JOB ERROR] Could not forward ports!');
 
             logging.info('[SLURM JOB UPDATE] You can now use your Slurm Jupyter kernel!');
-            # keep alive to avoid Jupyter kernel restart
-            time.sleep(10000000);
 
-            #if len(self.environment) >= 1:
-            #    for key, val in self.environment.items():
-            #        logging.debug(f"Send to session: export {key}={val}")
-            #        self.slurm_session.sendline(f"export {key}={val}");
+            # keep alive to avoid Jupyter kernel restart
+            time.sleep(10000000);            
 
     def initialize_ssh_tunnels (self):
         if not self.exec_node == None:
@@ -132,7 +140,7 @@ connection_file=$tmpfile
 
             return True;
         else:
-            logging.debug('self.exec_host is type NONE');
+            logging.error('[SLURM JOB ERROR] Cannot forward kernel ports! Execution node unknown!');
 
     def check_slurm_job (self):
 
