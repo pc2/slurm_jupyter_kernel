@@ -1,7 +1,4 @@
-try:
-    from setuptools import setup;
-except ImportError:
-    from distutils.core import setup;
+from setuptools import setup;
 
 with open('README.md', 'r', encoding='utf-8') as fh:
     long_description = fh.read();
@@ -22,7 +19,8 @@ setup(
     ],
     author='Marcel-Brian Wilkowsky',
     author_email='marcel.wilkowsky@uni-paderborn.de',
-    packages=['slurm_jupyter_kernel'],
+	include_package_data=True,
+	packages=['slurm_jupyter_kernel'],
     scripts=['bin/slurmkernel'],
-    install_requires=['pexpect', 'jupyter_client', 'IPython']
+    install_requires=['pexpect>=4.8.0', 'ipython>=8.5.0', 'jupyter_client>=7.3.5']
 );
