@@ -31,8 +31,11 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
       - [Localhost](#localhost)
     - [Set kernel-specific environment](#set-kernel-specific-environment)
   - [Using the kernel with Applications](#using-the-kernel-with-applications)
-    - [Example](#example-1)
-  - [Get help](#get-help)
+    - [Quarto Example](#quarto-example)
+  - [Troubleshooting](#troubleshooting)
+    - [Kernel exceptions](#kernel-exceptions)
+    - [Debugging](#debugging)
+    - [Get help](#get-help)
 
 ## Installation
 
@@ -118,7 +121,26 @@ More information here: https://jupyter-client.readthedocs.io/en/stable/kernels.h
 ### Quarto Example
 <img src="imgs/quarto_example.png" width="600">
 
-## Get help
+## Troubleshooting
+
+### Kernel exceptions
+
+When you start a Jupyter slurm kernel, it throws an excpetion, depending on the error case. You can read the exception from the graphical user interface like JupyterLab.
+If you start a kernel in the classic notebook view, you can click on "Error" on the left of the kernel status. There you can also find the exception.
+
+![Exception Example 1](imgs/exception_example_1.png)
+![Exception Example 2](imgs/exception_example_2.png)
+
+### Debugging
+
+If your Slurm jupyter kernel does not start, it can have many causes.
+Before we turn on the debug mode, check following things:
+
+* SSH-Agent is active/running and my key is loaded
+  * If you can log in in to the loginnode of the HPC system passwordless (Shell) that should work
+* Correct Proxyjump (Loadbalancer), Loginnode
+
+### Get help
 
 ```bash
 $ slurmkernel --help
