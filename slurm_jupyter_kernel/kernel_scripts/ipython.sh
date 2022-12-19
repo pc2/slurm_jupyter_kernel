@@ -13,5 +13,5 @@ echo -e '#!/bin/bash\n$1\nsource $2/ipython_venv/bin/activate\n"$@"' > $2/ipytho
 chmod +x $2/ipython_venv/ipy_wrapper.sh
 
 # kernel settings
-KERNEL_LANGUAGE=python
-KERNEL_CMD=$2/ipython_venv/ipy_wrapper.sh ipython kernel -f {connection_file}
+LANGUAGE=python
+ARGV=$2/ipython_venv/ipy_wrapper.sh ipython kernel -f {connection_file}

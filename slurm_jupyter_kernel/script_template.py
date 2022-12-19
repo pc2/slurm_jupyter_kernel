@@ -79,7 +79,7 @@ class ScriptTemplate:
     def use (self, loginnode=None, user=None, proxyjump=None, dry_run=False):
 
         ssh_options = {};
-        kernel_specs = ['KERNEL_LANGUAGE', 'KERNEL_DISPLAYNAME', 'KERNEL_CMD', 'KERNEL_ENVIRONMENT'];
+        kernel_specs = ['LANGUAGE', 'DISPLAYNAME', 'ARGV', 'ENVIRONMENT'];
 
         # first of all: check running ssh-agent
         try:
@@ -214,18 +214,18 @@ class ScriptTemplate:
         # return kernel information
         set_kernel_specs = { key.lower(): val for key, val in set_kernel_specs.items() };
         set_kernel_specs['loginnode'] = loginnode;
-        set_kernel_specs['user'] = user;
+        set_kernel_specs['username'] = user;
         set_kernel_specs['proxyjump'] = proxy;
 
         # get kernel name
-        if not 'kernel_displayname' in set_kernel_specs.keys():
+        if not 'displayname' in set_kernel_specs.keys():
             while True:
                 kernel_displayname = input(f'Display Name of the new Jupyter kernel (will be shown in e.g. JupyterLab): ');
                 if kernel_displayname == '':
                     print(f'{Color.F_LightRed}Please enter a valid Jupyter kernel name!{Color.F_Default}');
                     continue;
 
-                set_kernel_specs['kernel_displayname'] = kernel_displayname;
+                set_kernel_specs['displayname'] = kernel_displayname;
                 break;
 
         print('Please specify the Slurm job parameter to start the job with (comma-separated, e.g. "account=hpc,time=00:00:00"):');
