@@ -8,9 +8,10 @@ from typing import Optional
 from traitlets import Unicode;
 from traitlets import Dict as tDict;
 from time import sleep;
+from os import environ;
 import re;
 import json;
-from subprocess import check_output, Popen, PIPE, DEVNULL, STDOUT;
+from subprocess import check_output, Popen, PIPE, DEVNULL, STDOUT, TimeoutExpired;
 
 # custom exceptions
 class NoSlurmFlagsFound (Exception):
@@ -21,7 +22,13 @@ class UnknownUsername (Exception):
     pass;
 class NoSlurmJobID (Exception):
     pass;
-class SSHConnectionError (Exception):
+class SSHAgentNotRunning (Exception):
+    pass;
+class SSHTimeout (Exception):
+    pass;
+class SSHCommandError (Exception):
+    pass;
+class SSHTunnelCommandError (Exception):
     pass;
 
 class RemoteSlurmProvisioner(LocalProvisioner):
@@ -68,6 +75,12 @@ connection_file=$tmpfile
             if self.proxyjump:
                 loginnode = self.loginnode + f' (via {self.proxyjump})';
             raise UnknownUsername(f'Could not login to {loginnode}! Unknown username!');
+
+        # check running SSH agent
+        try:
+            environ['SSH_AUTH_SOCK'];
+        except KeyError:
+            raise SSHAgentNotRunning('SSH Agent is not running. Start you agent using following cmd:\n$ eval $(ssh-agent)')
 
         # Build sbatch job flags
         slurm_job_flags = '';
@@ -117,9 +130,18 @@ connection_file=$tmpfile
         run_command = self.ssh_command.split(' ') + self.sbatch_command;
         self.log.debug('Would run SSH command: ' + str(run_command));
 
-        self.process = Popen(run_command, stdout=PIPE, stderr=DEVNULL, stdin=PIPE);
-        child_process_out, child_process_err = self.process.communicate(input=self.batch_job.encode());
-        child_process_out = child_process_out.decode('utf-8').strip();
+        try:
+            self.process = Popen(run_command, stdout=PIPE, stderr=PIPE, stdin=PIPE);
+            child_process_out, child_process_err = self.process.communicate(input=self.batch_job.encode(), timeout=10.0);
+            child_process_out = child_process_out.decode('utf-8').strip();
+
+            # check exit code
+            if not self.process.returncode == 0:
+                error_text = child_process_err.decode('utf-8').strip();
+                raise SSHCommandError('Error running the SSH command. Output:\n\n' + error_text + '\n\nYou may want to update your kernelspec file with: $ slurmkernel edit');
+
+        except TimeoutExpired:
+            raise SSHTimeout(f'Timeout expired when calling command\n{" ".join(run_command)}\n\nPlease check your SSH config. Run the command in your terminal to see whats wrong.\nYou may want to update your kernel configuration.');
 
         self.log.debug('Submitted Slurm job! sbatch output: ' + str(child_process_out));
 
@@ -158,7 +180,6 @@ connection_file=$tmpfile
                 self.log.debug('Using command: ' + str(ssh_command));
 
                 ssh_tunnel_process = Popen(ssh_command, stdout=PIPE, stderr=STDOUT);
-                # TODO: work with exceptions
                 self.active_port_forwarding = True;
 
     def _get_slurm_job_state (self, job_id: int):
@@ -191,15 +212,16 @@ connection_file=$tmpfile
 
         return result;
 
-    def get_shutdown_wait_time(self, recommended: float = 5) -> float:
+    def get_shutdown_wait_time(self, recommended: float = 60) -> float:
 
         #recommended = 30.0;
         return super().get_shutdown_wait_time(recommended);
 
-    def get_stable_start_time(self, recommended: float = 10) -> float:
+    def get_stable_start_time(self, recommended: float = 60) -> float:
 
-        recommended = 30.0;
-        return super().get_stable_start_time(recommended)
+        return 60;
+        #recommended = 30.0;
+        #return super().get_stable_start_time(recommended)
 
     async def send_signal(self, signum: int) -> None:
 
