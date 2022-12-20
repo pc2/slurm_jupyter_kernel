@@ -11,6 +11,7 @@ from time import sleep;
 from os import environ;
 import re;
 import json;
+import signal;
 from subprocess import check_output, Popen, PIPE, DEVNULL, STDOUT, TimeoutExpired;
 
 # custom exceptions
@@ -58,18 +59,18 @@ connection_file=$tmpfile
         self.job_id = None;
         self.job_state = None;
         self.exec_node = None;
+        self.estimated_start_time = None;
         self.active_port_forwarding = False;
 
         super().__init__(**kwargs);
 
     async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
 
+        # basic kernelspec checks
         if not self.sbatch_flags:
             raise NoSlurmFlagsFound('Please provide sbatch flags to start the Slurm job with!');
-
         if not self.loginnode:
             raise UnknownLoginnode('Could not start Slurm job. Unknown loginnode!');
-
         if not self.username:
             loginnode = self.loginnode;
             if self.proxyjump:
@@ -180,6 +181,8 @@ connection_file=$tmpfile
                 self.log.debug('Using command: ' + str(ssh_command));
 
                 ssh_tunnel_process = Popen(ssh_command, stdout=PIPE, stderr=STDOUT);
+                if self.exec_node:
+                    self.log.info(f'Your started kernel is now ready to use on compute node {self.exec_node}');
                 self.active_port_forwarding = True;
 
     def _get_slurm_job_state (self, job_id: int):
@@ -187,39 +190,52 @@ connection_file=$tmpfile
         check_command = self.ssh_command.split(' ') + ['-T', '/bin/bash', '--login', '-c', f'"squeue -h -j {self.job_id} -o \'%T %B\' 2> /dev/null"'];
 
         squeue_output = check_output(check_command);
-        squeue_output = squeue_output.decode('utf-8').split(' ');
+        squeue_output = squeue_output.decode('utf-8').strip().split(' ');
         self.state = squeue_output[0].strip();
+
+        self.log.debug(f'Slurm job {job_id} is in state "{self.state}"');
 
         if 'RUNNING' in self.state:
             self.exec_node = squeue_output[1];
             self.exec_node = self.exec_node.strip();
+        elif 'PENDING' in self.state:
+            self.estimated_start_time = squeue_output[1].strip();
+        elif self.state == '':
+            self.state = 'UNKNOWN';
 
-        return [self.state, self.exec_node];
+        return [self.state, self.exec_node, self.estimated_start_time];
 
     async def poll(self) -> Optional[int]:
 
         # 0 = polling
         result = 0;
         if self.job_id:            
-            state, exec_node = self._get_slurm_job_state(self.job_id);
-            if state == 'RUNNING':
-                
+            state, exec_node, estimated_starttime = self._get_slurm_job_state(self.job_id);
+            # also returning None if Slurm job is PENDING
+            if state in ['RUNNING', 'PENDING']:
+                if 'PENDING' in state:
+                    self.log.info(f'Your Slurm job {self.job_id} is in state pending. Waiting for Slurm job to start!');
+                # if we have an execution node (running job) start ssh tunnel
                 if isinstance(exec_node, str):
                     if self.active_port_forwarding == False:
                         self.log.info(f'Slurm job is in state running on compute node {exec_node}');
                         self._start_ssh_port_forwarding();
-                    result = None;
+                result = None;
+            elif state == 'UNKNOWN':
+                self.log.error(f'Slurm job {self.job_id} is UNKNOWN! The Slurm job disappeared in the queue. Check the Slurm job logs for more information!');
+                await self.kill(restart=False);
 
         return result;
 
     def get_shutdown_wait_time(self, recommended: float = 60) -> float:
 
         #recommended = 30.0;
+        return 5;
         return super().get_shutdown_wait_time(recommended);
 
     def get_stable_start_time(self, recommended: float = 60) -> float:
 
-        return 60;
+        return 5;
         #recommended = 30.0;
         #return super().get_stable_start_time(recommended)
 
@@ -227,5 +243,10 @@ connection_file=$tmpfile
 
         if signum == 0:
             return await self.poll();
+        #elif signum == signal.SIGKILL:
+        #    return await self.kill();
         else:
             return await super().send_signal(signum);
+
+    async def kill(self, restart: bool = False) -> None:
+        return await super().kill(restart)
