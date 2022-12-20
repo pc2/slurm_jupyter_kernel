@@ -5,7 +5,7 @@ with open('README.md', 'r', encoding='utf-8') as fh:
 
 setup(
     name='slurm_jupyter_kernel',
-    version='1.8',
+    version='1.9',
     description='Manage and start jupyter slurm kernels',
     long_description=long_description,
     long_description_content_type="text/markdown",
