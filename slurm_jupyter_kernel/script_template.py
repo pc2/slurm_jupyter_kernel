@@ -79,7 +79,7 @@ class ScriptTemplate:
     def use (self, loginnode=None, user=None, proxyjump=None, dry_run=False):
 
         ssh_options = {};
-        kernel_specs = ['LANGUAGE', 'DISPLAYNAME', 'ARGV', 'ENVIRONMENT'];
+        kernel_specs = ['LANGUAGE', 'DISPLAYNAME', 'ARGV', 'ENV'];
 
         # first of all: check running ssh-agent
         try:
@@ -228,10 +228,21 @@ class ScriptTemplate:
                 set_kernel_specs['displayname'] = kernel_displayname;
                 break;
 
-        print('Please specify the Slurm job parameter to start the job with (comma-separated, e.g. "account=hpc,time=00:00:00"):');
+        while True:
+            print('Please specify the Slurm job parameter to start the job with (comma-separated, e.g. "account=hpc,time=00:00:00"):');
+            slurm_parameter = input('Slurm job parameter: ');
+            if slurm_parameter == '':
+                print(f'{Color.F_LightRed}Please enter valid Slurm parameter!{Color.F_Default}');
+                continue;
 
-        slurm_parameter = input('Slurm job parameter: ');
-        set_kernel_specs['slurm_parameter'] = slurm_parameter;
+            try:
+                dict((k.strip(), v.strip()) for k, v in (item.split('=') for item in slurm_parameter.split(',')));
+            except ValueError:
+                print(f'{Color.F_LightRed}Invalid format for Slurm parameters! Correct format would be -> account=hpcgroup1,time=01:30:00,reservation=MyRes{Color.F_Default}');
+                continue;
+
+            set_kernel_specs['slurm_parameter'] = slurm_parameter;
+            break;
 
         return set_kernel_specs;
 
