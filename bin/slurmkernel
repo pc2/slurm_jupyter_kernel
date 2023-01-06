@@ -105,21 +105,8 @@ class SlurmJupyterKernel:
                 iterator = 0;
                 old_slurm_kernels = False;
                 for kernelfile, data in available_slurm_kernel.items():
-                #print('\n\033[91m\u2B51\033[0m = Maybe an old version of a jupyter slurm kernel');
-
-                    try:
-                        if data[4]['maybe_old_slurm_kernel'] == True:
-                            old_slurm_kernels = True;
-                            print(f'\033[94m[{iterator}]\033[0m \033[91m\u2B51\033[0m {kernelfile}');
-                        else:
-                            print(f'\033[94m[{iterator}]\033[0m {kernelfile}');
-                    except:
-                        print(f'\033[94m[{iterator}]\033[0m {kernelfile}');
-
+                    print(f'\033[94m[{iterator}]\033[0m {kernelfile}');
                     iterator += 1;
-
-                if old_slurm_kernels == True:
-                    print('\n\033[91m\u2B51\033[0m = Maybe an old version of a jupyter slurm kernel\n');
 
                 identifier = input('Select a kernel using the \033[94midentifier\033[0m:\033[94m ');
                 try:
@@ -241,7 +228,7 @@ class SlurmJupyterKernel:
                 print('\033[91mInvalid input. Please try again!\033[0m');
                 continue;
 
-    def save_slurm_kernel (self):
+    def save_slurm_kernel (self, dry_run=None):
 
         new_slurm_kernel = self.get_kernelspec();
 
@@ -316,7 +303,6 @@ def main (cmd_line=None):
 
     args = parser.parse_args(cmd_line);
     if args.command == 'add':
-        #add_slurm_kernel(args.displayname, args.language, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.user, args.proxyjump, args.srun_cmd, args.environment);
         new_kernel = SlurmJupyterKernel(displayname=args.displayname, language=args.language, argv=args.kernel_cmd, slurm_parameter=args.slurm_parameter, loginnode=args.loginnode, username=args.user, proxyjump=args.proxyjump, env=args.environment);
         new_kernel.save_slurm_kernel();
     elif args.command == 'list':
@@ -333,11 +319,16 @@ def main (cmd_line=None):
         elif args.subcommand == 'use':
             template = script_template.ScriptTemplate(args.template);
             try:
+                # kernel_specs_info = kernelspec without provisioner information
                 kernel_specs_info = template.use(args.loginnode, args.user, args.proxyjump, args.dry_run);
-                print(str(kernel_specs_info));
                 new_kernel = SlurmJupyterKernel(**kernel_specs_info);
-                new_kernel.save_slurm_kernel();
-                #add_slurm_kernel(**kernel_specs_info);
+                if not args.dry_run: 
+                    # generates kernelspec file with provisioner information
+                    new_kernel.save_slurm_kernel(dry_run=args.dry_run);
+                else:
+                    kernel_specs_info = new_kernel.get_kernelspec();
+                    kernel_specs_info = json.loads(str(kernel_specs_info).replace("'", '"'));
+                    print(f'{Color.F_LightYellow} Would save following kernelspec file:\n' + json.dumps(kernel_specs_info, indent=4));
             except script_template.SSHConnectionError:
                 sys.exit(f'{Color.F_LightRed}Error: Could not establish a connection to host\nPlease check following things:\n* Username is correct\n* Running SSH agent with loaded key file\n* proxyjump, loginnode or username is correct{Color.F_Default}');
             except script_template.SSHAgentNotRunning:
