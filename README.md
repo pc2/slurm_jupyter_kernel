@@ -72,6 +72,8 @@ If you want to create your own script templates, see here: [Create Script Templa
 
 #### Example
 
+**Note:** Add the parameter `--dry-run` to check the commands that will be executed!
+
 ```bash
 $ slurmkernel template use --proxyjump lb.hpc.pc2.de --loginnode login001 --user hpcuser1 --template ipython
 ````
