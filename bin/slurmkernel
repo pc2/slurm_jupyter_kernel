@@ -212,21 +212,26 @@ class SlurmJupyterKernel:
     def remove_slurm_kernel (self):
 
         kernel_to_delete = SlurmJupyterKernel.select_slurm_kernel();
-        kernel_to_delete = kernel_to_delete + '/kernel.json';
+        if kernel_to_delete:
+        
+            kernel_to_delete = kernel_to_delete + '/kernel.json';
 
-        while True:
-            print(f'Following kernel selected: \033[1m\033[93m{kernel_to_delete}\033[0m');
-            delete_yes_no = input('Are you sure you want to delete the selected kernel? [Y,n] ');
-            if delete_yes_no == '' or delete_yes_no.upper() == 'Y':
-                rmtree(str(kernel_to_delete));
-                print(f'Kernel \033[92m{kernel_to_delete}\033[0m deleted');
-                sys.exit();
-            elif delete_yes_no.upper() == 'N':
-                print('\033[94mI did not delete the selected kernel\033[0m');
-                sys.exit();
-            else:
-                print('\033[91mInvalid input. Please try again!\033[0m');
-                continue;
+            while True:
+                print(f'Following kernel selected: \033[1m\033[93m{kernel_to_delete}\033[0m');
+                delete_yes_no = input('Are you sure you want to delete the selected kernel? [Y,n] ');
+                if delete_yes_no == '' or delete_yes_no.upper() == 'Y':
+                    kernel_to_delete = str(os.path.dirname(kernel_to_delete));
+                    rmtree(kernel_to_delete);
+                    print(f'Kernel \033[92m{kernel_to_delete}\033[0m deleted');
+                    sys.exit();
+                elif delete_yes_no.upper() == 'N':
+                    print('\033[94mI did not delete the selected kernel\033[0m');
+                    sys.exit();
+                else:
+                    print('\033[91mInvalid input. Please try again!\033[0m');
+                    continue;
+        else:
+            print(f'I did not found any kernel to delete!');
 
     def save_slurm_kernel (self, dry_run=None):
 
