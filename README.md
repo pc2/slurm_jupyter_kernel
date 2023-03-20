@@ -7,6 +7,13 @@ You can specify a SSH proxy jump, if you have to jump over two hosts (e.g. a loa
 
 ![How it works](imgs/how_it_works.png)
 
+```
+Slurm job 3251854 is in state "RUNNING"
+Slurm job is in state running on compute node cn213
+Starting SSH tunnel to forward kernel ports to localhost
+Your started kernel is now ready to use on compute node cn213
+```
+
 ## Features & Use-Cases
 
 * Start Remote Jupyter kernel using sbatch (Slurm)
