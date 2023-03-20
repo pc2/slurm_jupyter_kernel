@@ -9,19 +9,14 @@ import json;
 import sys;
 import os;
 import getpass;
-import re;
 import tempfile;
 import subprocess
-from venv import create;
 import slurm_jupyter_kernel;
 from slurm_jupyter_kernel import script_template;
 from pathlib import Path;
 from shutil import copy, rmtree 
-from pexpect import pxssh;
-try:
-    from jupyter_client import kernelspec;
-except ImportError:
-    from IPython.kernel import kernelspec;
+from hashlib import sha256;
+from jupyter_client import kernelspec;
 
 class Color:
     # Foreground
@@ -43,123 +38,136 @@ class Color:
     F_LightCyan = "\x1b[96m"
     F_White = "\x1b[97m"
 
-def add_slurm_kernel (kernel_displayname, kernel_language, kernel_cmd, slurm_parameter, loginnode, user, proxyjump, srun_cmd="srun", kernel_environment=None):
-   
-    print(f"\n\033[94m\u2687\033[0m Try to create slurm kernel '{kernel_displayname}'... \033[0m");
-    args = [str(sys.executable), '-m', 'slurm_jupyter_kernel'];
+class SlurmJupyterKernel:
 
-    args.extend(['--slurm-parameter', slurm_parameter]);
-    args.extend(['--loginnode', user+'@'+loginnode]);
-    args.extend(['--proxyjump', proxyjump]);
-    if srun_cmd is None:
-        srun_cmd = 'srun';
-    args.extend(['--srun-cmd', srun_cmd]);
+    def __init__ (self, displayname=None, language=None, argv=None, slurm_parameter=None, loginnode=None, username=None, proxyjump=None, env=None):
 
-    kernel_cmd = kernel_cmd.format(connection_file='{remote_connection_file}');
-    args.extend(['--kernel-cmd', kernel_cmd]);
-    args.extend(['--connection-file', '{connection_file}']);
+        self.displayname = displayname;
+        self.language = language;
+        self.argv = argv;
+        self.slurm_parameter = slurm_parameter;
+        self.loginnode = loginnode;
+        self.username = username;
+        self.proxyjump = proxyjump;
+        self.env = env;
 
-    if not re.search('slurm', str(kernel_displayname), re.IGNORECASE):
-        kernel_displayname = "Slurm " + str(kernel_displayname);
+    def get_kernelspec (self):
 
-    kerneldir_name = kernel_displayname.replace(' ', '_');
-    username = getpass.getuser();
+        optional_parameter = ['language', 'env'];
 
-    kernel_env = {}
-    if not kernel_environment is None:
-        kernel_env = dict( (key.strip(), val.strip()) for key, val in (item.split('=') for item in kernel_environment.split(',')) ); 
-        args.extend(['--environment', str(kernel_env)]);
-
-    json_kernel = {
-        'display_name': kernel_displayname,
-        'env': kernel_env,
-        'metadata': {"remote_slurm_kernel": True},
-        'argv': args
-    };
-    if not kernel_language is None:
-        json_kernel['language'] = kernel_language;
-
-    # create a temporary jupyter kernel directory
-    tempdir = tempfile.mkdtemp();
-
-    kernel_loc = os.path.join(str(tempdir), 'kernel.json');
-    with open(os.path.join(tempdir, 'kernel.json'), 'w') as kfile:
-        json.dump(json_kernel, kfile, indent=2, sort_keys=True);
-
-    img_dir = str(Path(slurm_jupyter_kernel.__file__).parent.parent) + '/imgs/';
-    if os.path.isdir(str(img_dir)):
-        copy(str(img_dir) + 'logo-32x32.png', str(tempdir));
-        copy(str(img_dir) + 'logo-64x64.png', str(tempdir));
-
-    kernel_path = kernelspec.install_kernel_spec(tempdir, kerneldir_name, user=username);
-
-    print(f'{Color.F_LightGreen}\u2714\033[0m Successfully created kernel: {kernel_path}{Color.F_Default}');
-
-def delete_slurm_kernel ():
-    
-    selected_kernel = _select_slurm_kernel();
-
-    while True:
-        print(f'Following kernel selected: \033[1m\033[93m{selected_kernel}\033[0m');
-        delete_yes_no = input('Are you sure you want to delete the selected kernel? [Y,n] ');
-        if delete_yes_no == '' or delete_yes_no.upper() == 'Y':
-            rmtree(str(selected_kernel));
-            print(f'Kernel \033[92m{selected_kernel}\033[0m deleted');
-            sys.exit();
-        elif delete_yes_no.upper() == 'N':
-            print('\033[94mI did not delete the selected kernel\033[0m');
-            sys.exit();
+        for parameter in SlurmJupyterKernel.__init__.__code__.co_varnames[1:]:
+            if not self.__dict__[parameter]:
+                if not parameter in optional_parameter:
+                    required_parameter = input(f'--{parameter}: ');
+                    setattr(self, parameter, required_parameter);
+                    
+        # convert slurm_parameter str to dict
+        if self.slurm_parameter:
+            self.slurm_parameter = dict((k.strip(), v.strip()) for k, v in (item.split('=') for item in self.slurm_parameter.split(',')));
+        # convert env str list to dict
+        if self.env:
+            self.env = dict((k.strip(), v.strip()) for k, v in (item.split('=') for item in self.env.split(',')));
         else:
-            print('\033[91mInvalid input. Please try again!\033[0m');
-            continue;
+            self.env = {};
 
-def _select_slurm_kernel ():
+        if not self.language:
+            self.language = '';
 
-    available_slurm_kernel = list_slurm_kernel(returnonly=True);
+        return {'display_name': self.displayname, 'argv': self.argv, 'env': self.env, 'language': self.language, 'metadata': {'kernel_provisioner': {'provisioner_name': 'remote-slurm-provisioner', 'config': {'proxyjump': self.proxyjump, 'loginnode': self.loginnode, 'username': self.username, 'sbatch_flags': self.slurm_parameter}}}};
 
-    if available_slurm_kernel is None:
-        sys.exit();
-
-    if len(available_slurm_kernel) >= 1:
-        while True:
-            print("\033[4mFollowing kernels found:\033[0m\n");
-            iterator = 0;
-            old_slurm_kernels = False;
-            for kernelfile, data in available_slurm_kernel.items():
-            #print('\n\033[91m\u2B51\033[0m = Maybe an old version of a jupyter slurm kernel');
-
-                try:
-                    if data[4]['maybe_old_slurm_kernel'] == True:
-                        old_slurm_kernels = True;
-                        print(f'\033[94m[{iterator}]\033[0m \033[91m\u2B51\033[0m {kernelfile}');
-                    else:
-                        print(f'\033[94m[{iterator}]\033[0m {kernelfile}');
-                except:
-                    print(f'\033[94m[{iterator}]\033[0m {kernelfile}');
-
-                iterator += 1;
-
-            if old_slurm_kernels == True:
-                print('\n\033[91m\u2B51\033[0m = Maybe an old version of a jupyter slurm kernel\n');
-
-            identifier = input('Select a kernel using the \033[94midentifier\033[0m:\033[94m ');
+    @staticmethod
+    def get_all_kernels ():
+        all_kernelspecs = kernelspec.find_kernel_specs();
+        slurm_kernels = {};
+        # iterate throuh all available kernels
+        for kernel, file in all_kernelspecs.items():
             try:
-                key = list(available_slurm_kernel.keys())[int(identifier)];
-            except IndexError:
-                print(f'\033[91mInvalid identifier: {identifier}\033[0m\n');
+                kernel_spec = kernelspec.get_kernel_spec(kernel);
+            except json.decoder.JSONDecodeError:
+                print(f'\033[91mError parsing {file}/kernel.json! Invalid JSON.\033[0m');
                 continue;
-            print('\033[0m');
-            if key:
-                return key;
-            else:
-                return False;
+            try:
+                kernel_provisioner_name = kernel_spec.metadata['kernel_provisioner']['provisioner_name'];
+                if kernel_provisioner_name == 'remote-slurm-provisioner':
+                    slurm_kernels.update({str(file): [kernel_spec.name, kernel_spec.display_name, kernel_spec.language, kernel_spec.env, kernel_spec.metadata]});
+                else:
+                    continue;
+            except:
+                continue;
+        return slurm_kernels;
 
+    @staticmethod
+    def select_slurm_kernel ():
+        available_slurm_kernel = SlurmJupyterKernel.get_all_kernels();
+        if len(available_slurm_kernel) >= 1:
+            while True:
+                print("\033[4mFollowing kernels found:\033[0m\n");
+                iterator = 0;
+                old_slurm_kernels = False;
+                for kernelfile, data in available_slurm_kernel.items():
+                    print(f'\033[94m[{iterator}]\033[0m {kernelfile}');
+                    iterator += 1;
 
-def modify_slurm_kernel (editor=None):
+                identifier = input('Select a kernel using the \033[94midentifier\033[0m:\033[94m ');
+                try:
+                    key = list(available_slurm_kernel.keys())[int(identifier)];
+                except IndexError:
+                    print(f'\033[91mInvalid identifier: {identifier}\033[0m\n');
+                    continue;
+                print('\033[0m');
+                if key:
+                    return key;
+                else:
+                    return False;
+    
+    @staticmethod
+    def list_slurm_kernel (verbose=False):
+        slurm_kernels = SlurmJupyterKernel.get_all_kernels();
+        print("\033[4mFollowing kernels found:\033[0m\n");
+        for kernel, data in slurm_kernels.items():
+            print(f'\033[94m\u27A4\033[0m \033[95m{kernel}\033[0m');
+            if verbose:
+                if data[0]:
+                    print(f'  \u2937  \033[1mKernel Name       : \033[0m{data[0]}');
+                else:
+                    kernelname = kernel.split('/')[-1];
+                    print(f'  \u2937  \033[1mKernel Name       : \033[0m{kernelname}');
+                    # printing slurm parameter
+                    try:
+                        slurm_parameter = data[4]['kernel_provisioner']['config']['sbatch_flags'];
+                        print(f'  \u2937  \033[1mSlurm Parameter   : \033[0m{slurm_parameter}');
+                    except KeyError:
+                        print(f'  \u2937  \033[1mSlurm Parameter   : \033[0m{Color.F_LightRed}No Slurm parameter for this kernel found! Without this information, the kernel cannot start!{Color.F_Default}');
+                    # printing login information
+                    try:
+                        proxyjump = data[4]['kernel_provisioner']['config']['proxyjump'];
+                        loginnode = data[4]['kernel_provisioner']['config']['loginnode'];
+                        username = data[4]['kernel_provisioner']['config']['username'];
+                        if not proxyjump == '':
+                            proxyjump = f'{Color.F_Cyan}Proxyjump:{Color.F_Default} {proxyjump}, ';
+                        else:
+                            proxyjump = '';
+                        login_information = f'{proxyjump}{Color.F_Cyan}Loginnode:{Color.F_Default} {loginnode}, {Color.F_Cyan}Username:{Color.F_Default} {username}';
+                        print(f'  \u2937  \033[1mLogin information : \033[0m{login_information}');
+                    except KeyError:
+                        print(f'  \u2937  \033[1mLogin information : \033[0m{Color.F_LightRed}No login information found (proxyjump, loginnode, username)! Without this information, the kernel cannot start!{Color.F_Default}');
+                if data[2]: print(f'  \u2937  \033[1mLanguage          : \033[0m{data[2]}');
+                if data[1]: print(f'  \u2937  \033[1mDisplay Name      : \033[0m{data[1]}');
+                if data[3]: print(f'  \u2937  \033[1mEnvironment       : \033[0m{data[3]}');
+                print('');
 
-    selected_kernel = _select_slurm_kernel();
-    if selected_kernel:
-        kernelspec = selected_kernel + '/kernel.json';
+    def edit_kernel (self, editor=None):
+
+        # select the kernel
+        kernel_to_edit = SlurmJupyterKernel.select_slurm_kernel();
+        kernel_to_edit = kernel_to_edit + '/kernel.json';
+
+        # check file hash
+        kernel_d = open(kernel_to_edit, 'rb');
+        kernel_data = kernel_d.read();
+        file_hash = sha256(kernel_data).hexdigest();
+        kernel_d.close();
+
         if editor is None:
             try:
                 editor = os.environ['EDITOR'];
@@ -168,12 +176,12 @@ def modify_slurm_kernel (editor=None):
                 sys.exit();
 
         while True:
-            edit_process = subprocess.Popen(f'{editor} {kernelspec}', shell=True);
+            edit_process = subprocess.Popen(f'{editor} {kernel_to_edit}', shell=True);
             (stdout, stderr) = edit_process.communicate();
             edit_process_status = edit_process.wait();
             try:
                 # check modified kernel.json
-                with open(kernelspec, 'r') as f:
+                with open(kernel_to_edit, 'r') as f:
                     json.loads(f.read());
 
             except json.decoder.JSONDecodeError:
@@ -189,95 +197,64 @@ def modify_slurm_kernel (editor=None):
             
             break;
             
-        # Modify done
-        print(f'Successfully modified {kernelspec}!');
-        sys.exit();
-    
+        # check file changes
+        kernel_d = open(kernel_to_edit, 'rb');
+        kernel_data = kernel_d.read();
+        file_hash_new = sha256(kernel_data).hexdigest();
+        kernel_d.close();
 
-def list_slurm_kernel (all=False, verbose=False, returnonly=False):
-
-    kernelspecs = kernelspec.find_kernel_specs();
-    slurm_kernels = {};
-
-    # iterate throuh all available kernels
-    for kernel, file in kernelspecs.items():
-        try:
-            kernel_spec = kernelspec.get_kernel_spec(kernel);
-        except json.decoder.JSONDecodeError:
-            print(f'\033[91mError parsing {file}/kernel.json! Invalid JSON.\033[0m');
-            continue;
-
-        add = False;
-        if all:
-            add = True;
+        if file_hash == file_hash_new:
+            print(f"{Color.F_LightMagenta}I could not notice any changes! Next time, think it over more carefully, won't you? \u2661{Color.F_Default}");
         else:
-            try:
-                is_slurm_kernel = kernel_spec.metadata['remote_slurm_kernel'];
-                if is_slurm_kernel == True:
-                    add = True;
-            except KeyError:
-                # maybe its an old jupyter slurm kernel
-                kernelname = kernel.split('/')[-1];
-                kernelname = kernelname.upper();
-                check_name = kernelname.split('_');
-                if 'SLURM' in check_name:
-                    kernel_spec.metadata['maybe_old_slurm_kernel'] = True;
-                    add = True;
-        if add:
-            slurm_kernels.update({str(file): [kernel_spec.name, kernel_spec.display_name, kernel_spec.language, kernel_spec.env, kernel_spec.metadata]});
-    
-    if len(slurm_kernels) >= 1:
-        # return only
-        if returnonly:
-            return slurm_kernels;
+            print(f'{Color.F_LightGreen}Successfully modified {kernel_to_edit}!{Color.F_Default}');
+            sys.exit();
 
-        maybe_old_versions = False;
+    def remove_slurm_kernel (self):
 
-        print("\033[4mFollowing kernels found:\033[0m\n");
-        for kernel, data in slurm_kernels.items():
-            try:
-                if data[4]['maybe_old_slurm_kernel'] == True:
-                    maybe_old_versions = True;
-                    print(f'\033[94m\u27A4\033[0m \033[95m{kernel} (\033[91m\u2B51\033[95m)\033[0m');
-                else:
-                    print(f'\033[94m\u27A4\033[0m \033[95m{kernel}\033[0m');
-            
-            except:
-                print(f'\033[94m\u27A4\033[0m \033[95m{kernel}\033[0m');
-            if verbose:
-                if data[0]:
-                    print(f'  \u2937  \033[1mKernel Name  : \033[0m{data[0]}');
-                else:
-                    kernelname = kernel.split('/')[-1];
-                    print(f'  \u2937  \033[1mKernel Name  : \033[0m{kernelname}') ;
-                if data[2]: print(f'  \u2937  \033[1mLanguage     : \033[0m{data[2]}');
-                if data[1]: print(f'  \u2937  \033[1mDisplay Name : \033[0m{data[1]}');
-                if data[3]: print(f'  \u2937  \033[1mEnvironment  : \033[0m{data[3]}');
-                print('');
+        kernel_to_delete = SlurmJupyterKernel.select_slurm_kernel();
+        kernel_to_delete = kernel_to_delete + '/kernel.json';
 
-        if maybe_old_versions == True:
-            print('\n\033[91m\u2B51\033[0m = Maybe an old version of a jupyter slurm kernel');
+        while True:
+            print(f'Following kernel selected: \033[1m\033[93m{kernel_to_delete}\033[0m');
+            delete_yes_no = input('Are you sure you want to delete the selected kernel? [Y,n] ');
+            if delete_yes_no == '' or delete_yes_no.upper() == 'Y':
+                rmtree(str(kernel_to_delete));
+                print(f'Kernel \033[92m{kernel_to_delete}\033[0m deleted');
+                sys.exit();
+            elif delete_yes_no.upper() == 'N':
+                print('\033[94mI did not delete the selected kernel\033[0m');
+                sys.exit();
+            else:
+                print('\033[91mInvalid input. Please try again!\033[0m');
+                continue;
 
-    else:
-        print('Currently no installed kernels found!');
+    def save_slurm_kernel (self, dry_run=None):
 
-def yninput (inputstr=''):
+        new_slurm_kernel = self.get_kernelspec();
 
-    while True:
-        question = input(inputstr);
-        if question.upper() == 'Y' or question == '':
-            return True;
-        elif question.upper() == 'N':
-            return False;
-        else:
-            continue;
+        # create a temporary jupyter kernel directory
+        tempdir = tempfile.mkdtemp();
+        kerneldir_name = new_slurm_kernel['display_name'].replace(' ', '_');
+
+        with open(os.path.join(tempdir, 'kernel.json'), 'w') as kfile:
+            json.dump(new_slurm_kernel, kfile, indent=2, sort_keys=True);
+
+        img_dir = str(Path(slurm_jupyter_kernel.__file__).parent.parent) + '/imgs/';
+        if os.path.isdir(str(img_dir)):
+            copy(str(img_dir) + 'logo-32x32.png', str(tempdir));
+            copy(str(img_dir) + 'logo-64x64.png', str(tempdir));
+
+        username = getpass.getuser();
+        kernel_path = kernelspec.install_kernel_spec(tempdir, kerneldir_name, user=username);
+
+        print(f'{Color.F_LightGreen}\u2714\033[0m Successfully saved slurm kernel: {kernel_path}{Color.F_Default}');
 
 def main (cmd_line=None):
 
     parser = argparse.ArgumentParser('Tool to manage (create, list, modify and delete) and starting jupyter slurm kernels using srun');
     subparser = parser.add_subparsers(dest='command');
 
-    add_option = subparser.add_parser('create', help='create a new slurm kernel');
+    add_option = subparser.add_parser('add', help='create a new slurm kernel');
 
     add_option.add_argument('--displayname', required=True, help='Display name of the new kernel');
     add_option.add_argument('--environment', required=False, help='Jupyter kernel environment');
@@ -325,23 +302,33 @@ def main (cmd_line=None):
         sys.exit();
 
     args = parser.parse_args(cmd_line);
-    if args.command == 'create':
-        add_slurm_kernel(args.displayname, args.language, args.kernel_cmd, args.slurm_parameter, args.loginnode, args.user, args.proxyjump, args.srun_cmd, args.environment);
+    if args.command == 'add':
+        new_kernel = SlurmJupyterKernel(displayname=args.displayname, language=args.language, argv=args.kernel_cmd, slurm_parameter=args.slurm_parameter, loginnode=args.loginnode, username=args.user, proxyjump=args.proxyjump, env=args.environment);
+        new_kernel.save_slurm_kernel();
     elif args.command == 'list':
-        list_slurm_kernel(all=args.all, verbose=args.verbose);
+        SlurmJupyterKernel.list_slurm_kernel(verbose=args.verbose);
     elif args.command == 'edit':
-        modify_slurm_kernel(args.editor);
+        slurm_kernel = SlurmJupyterKernel();
+        slurm_kernel.edit_kernel(editor=args.editor);
     elif args.command == 'delete':
-        delete_slurm_kernel();
+        slurm_kernel = SlurmJupyterKernel();
+        slurm_kernel.remove_slurm_kernel();
     elif args.command == 'template':
         if args.subcommand == 'list':
             script_template.ScriptTemplate.list_templates();
         elif args.subcommand == 'use':
-            #remote_initialization(args.loginnode, args.user, args.proxyjump, args.dry_run);
             template = script_template.ScriptTemplate(args.template);
             try:
+                # kernel_specs_info = kernelspec without provisioner information
                 kernel_specs_info = template.use(args.loginnode, args.user, args.proxyjump, args.dry_run);
-                add_slurm_kernel(**kernel_specs_info);
+                new_kernel = SlurmJupyterKernel(**kernel_specs_info);
+                if not args.dry_run: 
+                    # generates kernelspec file with provisioner information
+                    new_kernel.save_slurm_kernel(dry_run=args.dry_run);
+                else:
+                    kernel_specs_info = new_kernel.get_kernelspec();
+                    kernel_specs_info = json.loads(str(kernel_specs_info).replace("'", '"'));
+                    print(f'{Color.F_LightYellow} Would save following kernelspec file:\n' + json.dumps(kernel_specs_info, indent=4));
             except script_template.SSHConnectionError:
                 sys.exit(f'{Color.F_LightRed}Error: Could not establish a connection to host\nPlease check following things:\n* Username is correct\n* Running SSH agent with loaded key file\n* proxyjump, loginnode or username is correct{Color.F_Default}');
             except script_template.SSHAgentNotRunning:
